@@ -6,6 +6,7 @@ import { useConfirm } from '../components/UI/Confirm';
 import { useAuth } from '../contexts/AuthContext';
 import Modal from '../components/UI/Modal';
 import StatCard from '../components/UI/StatCard';
+import { useNavigate } from 'react-router-dom';
 
 const STATUS_MAP = { draft: ['草稿', '#94a3b8', '#f1f5f9'], sent: ['已送出', '#3b82f6', '#eff6ff'], confirmed: ['已確認', '#22c55e', '#f0fdf4'], cancelled: ['已取消', '#ef4444', '#fef2f2'] };
 
@@ -18,9 +19,12 @@ export default function Quotes() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, month: 0, confirmed: 0 });
   const [modal, setModal] = useState({ open: false, data: null });
+  const [measureFee, setMeasureFee] = useState(500);
+  const [measureMethod, setMeasureMethod] = useState('transfer');
   const toast = useToast();
   const confirm = useConfirm();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +93,7 @@ export default function Quotes() {
     <div>
       <div className="page-header">
         <div className="page-title-wrap"><div className="page-title">估價單</div><div className="page-subtitle">管理所有客戶報價單與確認狀態</div></div>
+        <button className="btn btn-primary" onClick={() => navigate('/quotes/new')}>+ 新增估價單</button>
       </div>
       <div className="stats">
         <StatCard label="總筆數" value={stats.total} />
@@ -139,7 +144,7 @@ export default function Quotes() {
       <Modal open={modal.open} onClose={() => setModal({ open: false, data: null })} title={`估價單 ${q.quote_no || ''}`} maxWidth={620}
         footer={<>
           <button className="btn btn-ghost" onClick={() => setModal({ open: false, data: null })}>關閉</button>
-          {!q.case_id && <button className="btn btn-ghost" style={{ borderColor: '#10b981', color: '#10b981' }} onClick={() => createCase(q)}>建立案件</button>}
+          <button className="btn btn-ghost" style={{ borderColor: 'var(--gold)', color: 'var(--gold)' }} onClick={() => window.open(`https://17310a3-1.zeabur.app/webhook/quote-pdf?no=${q.quote_no}`, '_blank')}>🖨️ PDF</button>
           <button className="btn btn-danger" onClick={() => deleteQuote(q)}>刪除</button>
         </>}>
         {modal.open && <>
@@ -162,10 +167,43 @@ export default function Quotes() {
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold)', letterSpacing: 2 }}>總計金額</span>
             <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--gold)' }}>{fmtPrice(q.total_price)}</span>
           </div>
+          {/* 狀態修改 */}
           <div style={{ marginTop: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
             <select value={q.status} onChange={e => saveStatus(e.target.value)} style={{ flex: 1, padding: '9px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 14, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
               <option value="draft">草稿</option><option value="sent">已送出</option><option value="confirmed">已確認</option><option value="cancelled">已取消</option>
             </select>
+          </div>
+
+          {/* 丈量費 / 建立案件 */}
+          <div style={{ marginTop: 14, border: '1px solid rgba(77,70,53,0.08)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+            <div style={{ background: 'var(--dark)', padding: '9px 14px', fontSize: 10, fontWeight: 700, color: 'var(--gold)', letterSpacing: 2, textTransform: 'uppercase' }}>丈量費 / 建立案件</div>
+            <div style={{ padding: '12px 16px' }}>
+              {q.case_id ? (
+                <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                  <span style={{ color: '#10b981', fontWeight: 700 }}>✓ 已建立案件</span>
+                  <button className="btn btn-ghost btn-sm" style={{ marginLeft: 10, borderColor: 'var(--gold)', color: 'var(--gold)' }} onClick={() => { setModal({ open: false, data: null }); navigate('/cases'); }}>前往案件 ›</button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>丈量費金額</label><input type="number" value={measureFee} onChange={e => setMeasureFee(Number(e.target.value))} className="search-box" style={{ padding: '8px 12px', fontSize: 13, minWidth: 0 }} /></div>
+                    <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>付款方式</label><select value={measureMethod} onChange={e => setMeasureMethod(e.target.value)} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%' }}><option value="transfer">轉帳</option><option value="cash">現金</option><option value="card">刷卡</option></select></div>
+                  </div>
+                  <button className="btn btn-primary" style={{ marginTop: 12, width: '100%', background: '#10b981', borderColor: '#10b981' }} onClick={async () => {
+                    const no = 'CS-' + new Date().toISOString().replace(/[-T:]/g, '').slice(0, 14);
+                    try {
+                      const res = await sbFetch('cases', { method: 'POST', headers: { 'Prefer': 'return=representation' }, body: JSON.stringify({ case_no: no, quote_id: q.id, quote_no: q.quote_no, customer_name: q.customer_name, customer_phone: q.customer_phone, customer_addr: q.customer_addr, product_code: q.product_code, door_type: q.door_type, quantity: q.quantity, quoted_price: q.total_price, measure_fee: measureFee, status: 'new', created_by: user?.display_name || '' }) });
+                      if (res?.[0] && measureFee > 0) {
+                        await sbFetch('payments', { method: 'POST', headers: { 'Prefer': 'return=minimal' }, body: JSON.stringify({ case_id: res[0].id, case_no: no, payment_type: 'measurement', amount: measureFee, payment_method: measureMethod, note: '丈量費', recorded_by: user?.display_name || '' }) });
+                      }
+                      if (res?.[0]) await sbFetch(`quotes?id=eq.${q.id}`, { method: 'PATCH', body: JSON.stringify({ case_id: res[0].id }) });
+                      toast('已收丈量費，案件已建立: ' + no, 'success');
+                      setModal({ open: false, data: null }); navigate('/cases');
+                    } catch (e) { toast(e.message, 'error'); }
+                  }}>✔ 收取丈量費 → 建立案件</button>
+                </>
+              )}
+            </div>
           </div>
         </>}
       </Modal>

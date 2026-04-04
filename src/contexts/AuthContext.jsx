@@ -20,11 +20,13 @@ export function AuthProvider({ children }) {
     if (!staff?.length) throw new Error('帳號不存在');
     const s = staff[0];
     if (s.password !== password) throw new Error('密碼錯誤');
+    // Check admin: username is User001 or permissions has all modules
+    const ADMINS = ['User001', 'admin'];
     const userData = {
       id: s.id,
       display_name: s.display_name,
       username: s.username,
-      isAdmin: s.role === 'admin',
+      isAdmin: ADMINS.includes(s.username),
       permissions: s.permissions || {}
     };
     setUser(userData);

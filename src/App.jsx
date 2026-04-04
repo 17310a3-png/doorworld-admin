@@ -15,6 +15,7 @@ import Quotes from './pages/Quotes';
 import Cases from './pages/Cases';
 import Finance from './pages/Finance';
 import Staff from './pages/Staff';
+import NewQuote from './pages/NewQuote';
 import './styles/globals.css';
 
 const TITLES = {
@@ -23,6 +24,7 @@ const TITLES = {
   '/products': '產品管理',
   '/service': '施工費用',
   '/quotes': '估價單',
+  '/quotes/new': '新增估價單',
   '/cases': '案件管理',
   '/finance': '財務管理',
   '/staff': '員工帳號',
@@ -45,6 +47,7 @@ function AppContent() {
             <Route path="/products" element={<Products />} />
             <Route path="/service" element={<Service />} />
             <Route path="/quotes" element={<Quotes />} />
+            <Route path="/quotes/new" element={<NewQuote />} />
             <Route path="/cases" element={<Cases />} />
             <Route path="/finance" element={<Finance />} />
             <Route path="/staff" element={<Staff />} />

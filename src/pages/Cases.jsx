@@ -218,12 +218,36 @@ export default function Cases() {
             <div>
               {productions.length === 0 ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>尚無工廠訂單</div> :
                 productions.map(p => (
-                  <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 10, padding: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 10, overflow: 'hidden' }}>
+                    <div style={{ background: 'var(--dark)', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <strong style={{ fontSize: 13, color: 'var(--gold)' }}>{p.factory_code} {p.production_order_no}</strong>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.production_status}</span>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{p.production_status}</span>
                     </div>
-                    {p.production_note && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.production_note}</div>}
+                    <div style={{ padding: 12 }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                        {[['下單', p.confirmed_order], ['精雕', p.engraving_status], ['油漆', p.paint_status], ['裝配', p.assembly_status], ['驗收', p.inspection_status]].map(([l, v]) => (
+                          <span key={l} style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, background: v ? 'rgba(16,185,129,.15)' : 'var(--surface-high)', color: v ? '#10b981' : 'var(--text-muted)' }}>{l}{v ? ' ✔' : ''}</span>
+                        ))}
+                      </div>
+                      {p.production_note && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>備註: {p.production_note}</div>}
+                      {p.workshop_shipment && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>出貨: {fmtDate(p.workshop_shipment)}</div>}
+                      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={async () => {
+                          const note = prompt('備註:', p.production_note || '');
+                          const status = prompt('狀態 (pending/confirmed/engraving/painting/assembly/inspection/shipped/installed):', p.production_status || 'pending');
+                          if (status === null) return;
+                          await sbFetch(`production?id=eq.${p.id}`, { method: 'PATCH', body: JSON.stringify({ production_note: note, production_status: status, updated_at: new Date().toISOString() }) });
+                          toast('已更新', 'success');
+                          sbFetch(`production?case_id=eq.${modal.data.id}&order=created_at.desc`).then(r => setProductions(r || []));
+                        }}>編輯</button>
+                        <button className="btn btn-danger btn-sm" onClick={async () => {
+                          if (!window.confirm('確定刪除？')) return;
+                          await sbFetch(`production?id=eq.${p.id}`, { method: 'DELETE' });
+                          toast('已刪除', 'success');
+                          sbFetch(`production?case_id=eq.${modal.data.id}&order=created_at.desc`).then(r => setProductions(r || []));
+                        }}>刪除</button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               <button className="btn btn-ghost" style={{ width: '100%', marginTop: 10, borderColor: 'var(--gold)', color: 'var(--gold)' }}

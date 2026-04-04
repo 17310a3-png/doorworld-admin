@@ -26,7 +26,7 @@ export default function Staff() {
     const fd = new FormData(e.target);
     const body = {
       display_name: fd.get('name'), username: fd.get('username'),
-      password: fd.get('password'), role: fd.get('role'),
+      password: fd.get('password'),
       permissions: {
         members: { view: fd.get('p_members') === 'on', edit: fd.get('p_members') === 'on' },
         products: { view: fd.get('p_products') === 'on', edit: fd.get('p_products') === 'on' },
@@ -67,15 +67,14 @@ export default function Staff() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>姓名</th><th>帳號</th><th>角色</th><th>權限</th><th>建立時間</th><th>操作</th></tr></thead>
+          <thead><tr><th>姓名</th><th>帳號</th><th>權限</th><th>建立時間</th><th>操作</th></tr></thead>
           <tbody>
             {loading ? <tr><td colSpan="6"><div className="loading"><div className="spinner" /><br />載入中...</div></td></tr>
-            : rows.length === 0 ? <tr><td colSpan="6"><div className="empty"><div className="icon">👤</div>沒有員工</div></td></tr>
+            : rows.length === 0 ? <tr><td colSpan="5"><div className="empty"><div className="icon">👤</div>沒有員工</div></td></tr>
             : rows.map(s => (
               <tr key={s.id}>
                 <td><strong>{s.display_name}</strong></td>
                 <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{s.username}</td>
-                <td><span className="badge" style={{ background: s.role === 'admin' ? 'rgba(201,162,39,.15)' : 'var(--surface-high)', color: s.role === 'admin' ? 'var(--gold)' : 'var(--text-muted)' }}>{s.role === 'admin' ? '管理員' : '員工'}</span></td>
                 <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{Object.entries(s.permissions || {}).filter(([, v]) => v?.view).map(([k]) => k).join(', ') || '—'}</td>
                 <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDate(s.created_at)}</td>
                 <td><div className="actions"><button className="btn btn-ghost btn-sm" onClick={() => setModal({ open: true, data: s })}>編輯</button><button className="btn btn-danger btn-sm" onClick={() => del(s)}>刪除</button></div></td>
@@ -91,7 +90,6 @@ export default function Staff() {
           <div className="form-group"><label>姓名</label><input name="name" defaultValue={d.display_name || ''} required /></div>
           <div className="form-group"><label>帳號</label><input name="username" defaultValue={d.username || ''} required /></div>
           <div className="form-group"><label>密碼</label><input name="password" type="password" placeholder={d.id ? '留空不修改' : '設定密碼'} /></div>
-          <div className="form-group"><label>角色</label><select name="role" defaultValue={d.role || 'staff'}><option value="staff">員工</option><option value="admin">管理員</option></select></div>
           <div className="form-group full" style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
             <label>模組權限</label>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 8 }}>
