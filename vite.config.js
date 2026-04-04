@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/doorworld-admin-react/',
+  base: '/doorworld-admin/',
   build: {
     outDir: 'dist'
   }
