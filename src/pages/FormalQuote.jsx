@@ -3,6 +3,7 @@ import { sbFetch, proxyCount } from '../api/supabase';
 import { fmtDate, fmtPrice, CASE_STATUS_LABEL, CASE_STATUS_COLOR, CTYPE_SHORT, PAGE_SIZE } from '../api/utils';
 import { useToast } from '../components/UI/Toast';
 import StatCard from '../components/UI/StatCard';
+import { useNavigate } from 'react-router-dom';
 
 export default function FormalQuote() {
   const [rows, setRows] = useState([]);
@@ -12,6 +13,7 @@ export default function FormalQuote() {
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const toast = useToast();
+  const navigate = useNavigate();
 
   async function load() {
     setLoading(true);
@@ -33,20 +35,24 @@ export default function FormalQuote() {
     <div>
       <div className="page-header">
         <div className="page-title-wrap"><div className="page-title">報價單總表</div><div className="page-subtitle">所有正式報價單 — 追蹤報價 → 成案 → 付款 → 發包 → 完工</div></div>
+        <button className="btn btn-primary" onClick={() => navigate('/formalquote/new')}>+ 新增報價單</button>
       </div>
       <div className="stats">
         <StatCard label="總數" value={total} />
       </div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+        {[['all', '全部'], ['official_quoted', '已報價'], ['order_confirmed', '已下單'], ['deposit_paid', '已付訂', 'var(--success)'], ['production', '製作中', '#3b82f6'], ['shipped', '已出貨', '#f59e0b'], ['arrived', '已到倉'], ['installed', '已安裝', 'var(--success)'], ['completed', '已結案', 'var(--success)'], ['cancelled', '已取消', 'var(--danger)']].map(([val, label, color]) => (
+          <button key={val} onClick={() => { setFilter(val); setPage(0); }} style={{
+            padding: '5px 11px', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)',
+            border: `1px solid ${filter === val ? 'var(--gold)' : 'var(--border)'}`,
+            background: filter === val ? 'var(--gold-dim)' : 'var(--surface-2)',
+            color: filter === val ? (color || 'var(--gold)') : 'var(--text-muted)',
+            fontWeight: filter === val ? 700 : 500
+          }}>{label}</button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         <input className="search-box" placeholder="搜尋單號、客戶..." value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} style={{ width: 250 }} />
-        <select value={filter} onChange={e => { setFilter(e.target.value); setPage(0); }} style={{ padding: '9px 32px 9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
-          <option value="all">全部</option>
-          <option value="official_quoted">已報價</option>
-          <option value="order_confirmed">已下單</option>
-          <option value="deposit_paid">已付訂</option>
-          <option value="production">製作中</option>
-          <option value="completed">已結案</option>
-        </select>
         <button className="btn btn-ghost" onClick={load}>↻</button>
       </div>
       <div className="table-wrap">
