@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { sbFetch } from '../api/supabase';
+import { uploadFile as storageUpload } from '../api/storage';
 import { fmtDate, fmtPrice, CASE_STATUS_LABEL, CASE_STATUS_COLOR } from '../api/utils';
 import { useToast } from '../components/UI/Toast';
 import { useConfirm } from '../components/UI/Confirm';
@@ -51,9 +52,7 @@ export default function SalesOrder() {
     const caseNo = (c?.case_no || 'unknown').replace(/[^a-zA-Z0-9-]/g, '');
     const fileName = `${caseNo}/${fileType}_${Date.now()}.${ext}`;
     try {
-      const res = { ok: true }; // handled by uploadFile
-      if (!res.ok) throw new Error('上傳失敗');
-      const url = `https://zklwnhxrqxspmjovohvt.supabase.co/storage/v1/object/public/case-files/${fileName}`;
+      const url = await storageUpload('case-files', fileName, file);
       let files = Array.isArray(c?.case_files) ? c.case_files.slice() : [];
       files = files.filter(f => f.type !== fileType);
       files.push({ type: fileType, url, name: file.name, uploaded_at: new Date().toISOString() });
@@ -88,9 +87,7 @@ export default function SalesOrder() {
         const caseNo = (c?.case_no || 'unknown').replace(/[^a-zA-Z0-9-]/g, '');
         const fileName = `${caseNo}/${fileType}_edit_${Date.now()}.${ext}`;
         try {
-          const res = { ok: true }; // handled by uploadFile
-          if (!res.ok) throw new Error('上傳失敗');
-          const url = `https://zklwnhxrqxspmjovohvt.supabase.co/storage/v1/object/public/case-files/${fileName}`;
+          const url = await storageUpload('case-files', fileName, file);
           let files = Array.isArray(c?.case_files) ? c.case_files.slice() : [];
           files = files.filter(f => f.type !== fileType);
           files.push({ type: fileType, url, name: file.name, uploaded_at: new Date().toISOString(), edited_at: new Date().toISOString(), edited_by: user?.display_name || '' });

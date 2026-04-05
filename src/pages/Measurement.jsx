@@ -75,14 +75,11 @@ export default function Measurement() {
       const caseNo = (c.case_no || 'unknown').replace(/[^a-zA-Z0-9-]/g, '');
       const fileName = `${caseNo}/${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
       try {
-        const res = { ok: true }; // handled by uploadFile
-        if (res.ok) {
-          const publicUrl = `https://zklwnhxrqxspmjovohvt.supabase.co/storage/v1/object/public/site-photos/${fileName}`;
-          newPhotos.push(publicUrl);
-          uploaded++;
-          setPhotoStatus(`上傳中 ${uploaded}/${files.length}...`);
-        }
-      } catch {}
+        const publicUrl = await uploadFile('site-photos', fileName, file);
+        newPhotos.push(publicUrl);
+        uploaded++;
+        setPhotoStatus(`上傳中 ${uploaded}/${files.length}...`);
+      } catch (e) { toast(`${file.name} 上傳失敗`, 'error'); }
     }
     setPhotos(newPhotos);
     // Auto-save photos

@@ -37,9 +37,7 @@ export default function Accessories() {
     const fileName = `accessories/${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
     setUploading(true);
     try {
-      const res = { ok: true }; // handled by uploadFile
-      if (!res.ok) throw new Error('上傳失敗');
-      const url = `https://zklwnhxrqxspmjovohvt.supabase.co/storage/v1/object/public/site-photos/${fileName}`;
+      const url = await uploadFile('site-photos', fileName, file);
       setImageUrl(url);
       toast('圖片已上傳', 'success');
     } catch (e) { toast('上傳失敗: ' + e.message, 'error'); }

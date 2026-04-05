@@ -124,17 +124,19 @@ export default function Dashboard() {
   const ioWaitTw = allActive.filter(c => c.is_fireproof && c.internal_order_date && !c.tw_secondary_done);
   const ioOverdue = ioWaitOrder.filter(c => ordCalcTimeline(c).internalOverdue);
 
+  // Pre-compute delay once per case to avoid redundant calcDelay calls
+  const delayMap = cases.map(c => ({ c, d: calcDelay(c) }));
   const stats = {
     active: cases.length,
-    ontime: cases.filter(c => !calcDelay(c).delayed).length,
-    delayed: cases.filter(c => calcDelay(c).delayed).length,
+    ontime: delayMap.filter(x => !x.d.delayed).length,
+    delayed: delayMap.filter(x => x.d.delayed).length,
     pendingMeasure: cases.filter(c => ['new', 'measure_scheduled'].includes(c.status)).length,
     pendingInstall: cases.filter(c => ['shipped', 'arrived'].includes(c.status)).length,
   };
 
-  const delayed = cases.filter(c => calcDelay(c).delayed).sort((a, b) => calcDelay(b).days - calcDelay(a).days);
+  const delayed = delayMap.filter(x => x.d.delayed).sort((a, b) => b.d.days - a.d.days).map(x => x.c);
 
-  let filtered = [...cases];
+  let filtered = cases.filter(c => c.status !== 'cancelled');
   if (filter === 'delayed') filtered = filtered.filter(c => calcDelay(c).delayed);
   else if (filter === 'measure') filtered = filtered.filter(c => ['new', 'measure_scheduled', 'measured', 'official_quoted'].includes(c.status));
   else if (filter === 'production') filtered = filtered.filter(c => ['order_confirmed', 'deposit_paid', 'production'].includes(c.status));

@@ -51,7 +51,7 @@ export default function Sidebar({ open, onClose }) {
       <div className={`sidebar ${open ? 'open' : ''}`} id="sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-brand-logo">
-            <img src="/logo.png" alt="門的世界" />
+            <img src={import.meta.env.BASE_URL + 'logo.png'} alt="門的世界" />
           </div>
           <div className="sidebar-brand-sub">Admin Console</div>
         </div>
