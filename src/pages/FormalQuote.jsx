@@ -4,6 +4,7 @@ import { fmtDate, fmtPrice, CASE_STATUS_LABEL, CASE_STATUS_COLOR, CTYPE_SHORT, P
 import { useToast } from '../components/UI/Toast';
 import StatCard from '../components/UI/StatCard';
 import { useNavigate } from 'react-router-dom';
+import { printFormalQuote } from '../api/pdf';
 
 export default function FormalQuote() {
   const [rows, setRows] = useState([]);
@@ -57,10 +58,10 @@ export default function FormalQuote() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>訂單編號</th><th>客戶</th><th>型態</th><th>業務</th><th>報價金額</th><th>總價</th><th>狀態</th><th>建立</th></tr></thead>
+          <thead><tr><th>訂單編號</th><th>客戶</th><th>型態</th><th>業務</th><th>報價金額</th><th>總價</th><th>狀態</th><th>建立</th><th style={{ width: 50 }}>PDF</th></tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan="8"><div className="loading"><div className="spinner" /><br />載入中...</div></td></tr>
-            : rows.length === 0 ? <tr><td colSpan="8"><div className="empty"><div className="icon">📋</div>無資料</div></td></tr>
+            {loading ? <tr><td colSpan="9"><div className="loading"><div className="spinner" /><br />載入中...</div></td></tr>
+            : rows.length === 0 ? <tr><td colSpan="9"><div className="empty"><div className="icon">📋</div>無資料</div></td></tr>
             : rows.map(c => {
               const st = CASE_STATUS_COLOR[c.status] || CASE_STATUS_COLOR.new;
               return (
@@ -73,6 +74,9 @@ export default function FormalQuote() {
                   <td className="price">{fmtPrice(c.total_with_tax)}</td>
                   <td><span className="badge" style={{ background: st.bg, color: st.color }}>{CASE_STATUS_LABEL[c.status] || c.status}</span></td>
                   <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDate(c.created_at)}</td>
+                  <td>
+                    <button onClick={() => printFormalQuote(c)} title="列印報價單 PDF" style={{ background: 'transparent', border: '1px solid var(--gold)', borderRadius: 4, padding: '4px 9px', cursor: 'pointer', color: 'var(--gold)', fontSize: 11, fontWeight: 600 }}>PDF</button>
+                  </td>
                 </tr>
               );
             })}
