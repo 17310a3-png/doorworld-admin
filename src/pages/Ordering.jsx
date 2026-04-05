@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { sbFetch } from '../api/supabase';
-import { fmtDate, fmtPrice, CASE_STATUS_LABEL, CASE_STATUS_COLOR, CTYPE_SHORT } from '../api/utils';
+import { fmtDate, CASE_STATUS_LABEL, CASE_STATUS_COLOR, DOOR_TYPE_LABEL } from '../api/utils';
 import { useToast } from '../components/UI/Toast';
 import StatCard from '../components/UI/StatCard';
 
@@ -76,7 +76,7 @@ export default function Ordering() {
                   <td><strong style={{ fontFamily: 'monospace', fontSize: 11 }}>{c.order_no || c.case_no || '—'}</strong></td>
                   <td>{c.customer_name || '—'}</td>
                   <td style={{ fontSize: 12 }}>{c.sales_person || '—'}</td>
-                  <td>{c.door_type || '—'}{c.is_fireproof && <span style={{ color: 'var(--danger)', marginLeft: 4, fontSize: 10 }}>🔥</span>}</td>
+                  <td>{DOOR_TYPE_LABEL[c.door_type] || c.door_type || '—'}{c.is_fireproof && <span style={{ color: 'var(--danger)', marginLeft: 4, fontSize: 10 }}>🔥</span>}</td>
                   <td style={{ fontSize: 12 }}>{c.deposit_50_paid_at ? fmtDate(c.deposit_50_paid_at).split(' ')[0] : '—'}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
