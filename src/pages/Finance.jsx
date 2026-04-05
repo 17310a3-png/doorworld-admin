@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { sbFetch } from '../api/supabase';
-import { fmtPrice, fmtDate, CTYPE_SHORT, downloadCSV } from '../api/utils';
+import { fmtPrice, CTYPE_SHORT, downloadCSV } from '../api/utils';
 import { useToast } from '../components/UI/Toast';
 import StatCard from '../components/UI/StatCard';
+import DateQuickFilter from '../components/UI/DateQuickFilter';
 import Chart from 'chart.js/auto';
 
 function getTotal(c) { return c.total_with_tax || c.official_price || c.quoted_price || 0; }
@@ -21,6 +22,7 @@ export default function Finance() {
   const [filter, setFilter] = useState('outstanding');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [datePreset, setDatePreset] = useState(null);
   const [loading, setLoading] = useState(true);
   const toast = useToast();
   const charts = useRef({});
@@ -86,12 +88,13 @@ export default function Finance() {
         <select value={filter} onChange={e => setFilter(e.target.value)} style={{ padding: '7px 32px 7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}>
           <option value="outstanding">未收清</option><option value="all">全部</option><option value="paid">已付清</option><option value="partial">部分收</option>
         </select>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)' }} />
-          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>~</span>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)' }} />
-          {(dateFrom || dateTo) && <button className="btn btn-ghost btn-sm" onClick={() => { setDateFrom(''); setDateTo(''); }} style={{ fontSize: 11 }}>清除</button>}
-        </div>
+        <DateQuickFilter
+          from={dateFrom} to={dateTo}
+          activePreset={datePreset}
+          onChange={(f, t) => { setDateFrom(f); setDateTo(t); }}
+          onPresetChange={k => setDatePreset(k)}
+          compact
+        />
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <span style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>共 {list.length} 筆</span>
           <button className="btn btn-ghost btn-sm" onClick={() => {

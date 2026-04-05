@@ -1,19 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { sbFetch, proxyCount } from '../api/supabase';
-import { fmtDate, fmtPrice, PAGE_SIZE, downloadCSV } from '../api/utils';
+import { fmtDate, fmtPrice, downloadCSV } from '../api/utils';
 import { useToast } from '../components/UI/Toast';
 import { useConfirm } from '../components/UI/Confirm';
 import Modal from '../components/UI/Modal';
 import StatCard from '../components/UI/StatCard';
 
 const CTYPE_OPTIONS = [['','選擇'],['S','股東'],['C','直客'],['D','設計師'],['D1','D1'],['D2','D2'],['A','代理商'],['B','建商'],['CC','商會'],['DD','經銷商'],['E','員工'],['G','公機關'],['V','VIP'],['Z','親友'],['X','公司']];
+const SS_KEY = 'members_filters_v1';
 
 export default function Members() {
+  const saved = (() => { try { return JSON.parse(sessionStorage.getItem(SS_KEY) || '{}'); } catch { return {}; } })();
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [search, setSearch] = useState('');
-  const [filterMode, setFilterMode] = useState('all');
+  const [search, setSearch] = useState(saved.search || '');
+  const [filterMode, setFilterMode] = useState(saved.filterMode || 'all');
+  const [pageSize, setPageSize] = useState(saved.pageSize || 20);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, month: 0, contact: 0, manual: 0 });
   const [modal, setModal] = useState({ open: false, data: null });
@@ -22,6 +25,10 @@ export default function Members() {
   const [lightbox, setLightbox] = useState('');
   const toast = useToast();
   const confirm = useConfirm();
+
+  useEffect(() => {
+    sessionStorage.setItem(SS_KEY, JSON.stringify({ search, filterMode, pageSize }));
+  }, [search, filterMode, pageSize]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,7 +39,7 @@ export default function Members() {
     try {
       const t = await proxyCount(path.replace('select=*,quotes(id)', 'select=id'));
       setTotal(t);
-      const data = await sbFetch(path + `&offset=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`);
+      const data = await sbFetch(path + `&offset=${page * pageSize}&limit=${pageSize}`);
       setRows(data || []);
       const all = await proxyCount('members?select=id');
       const month = new Date().toISOString().slice(0, 7);
@@ -42,7 +49,7 @@ export default function Members() {
       setStats({ total: all, month: mo, contact, manual });
     } catch (e) { toast(e.message, 'error'); }
     setLoading(false);
-  }, [search, filterMode, page, toast]);
+  }, [search, filterMode, page, pageSize, toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -119,7 +126,7 @@ export default function Members() {
     }}>{label}{count !== undefined ? ` (${count})` : ''}</button>
   );
 
-  const from = page * PAGE_SIZE + 1, to = Math.min(from + PAGE_SIZE - 1, total);
+  const from = page * pageSize + 1, to = Math.min(from + pageSize - 1, total);
   const d = modal.data || {};
 
   return (
@@ -173,7 +180,7 @@ export default function Members() {
                   <strong>{m.display_name || '—'}</strong>
                   {m.need_contact && <div style={{ fontSize: 9, color: 'var(--danger)', fontWeight: 700 }}>需聯繫</div>}
                 </td>
-                <td>{m.phone || '—'}</td>
+                <td>{m.phone ? <a href={`tel:${m.phone}`} style={{ color: 'var(--text)', textDecoration: 'none' }} title="點擊撥打">{m.phone}</a> : '—'}</td>
                 <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.company || '—'}</td>
                 <td style={{ fontSize: 11 }}>{m.customer_type || '—'}</td>
                 <td>
@@ -212,10 +219,17 @@ export default function Members() {
         </table>
       </div>
       <div className="pagination">
-        <span>{total ? `顯示 ${from}-${to}，共 ${total} 筆` : ''}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span>{total ? `顯示 ${from}-${to}，共 ${total} 筆` : ''}</span>
+          <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }} style={{ padding: '4px 22px 4px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 11, background: 'var(--surface-2)', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+            <option value="20">20 / 頁</option>
+            <option value="50">50 / 頁</option>
+            <option value="100">100 / 頁</option>
+          </select>
+        </div>
         <div className="page-btns">
           <button className="page-btn" disabled={page === 0} onClick={() => setPage(p => p - 1)}>‹</button>
-          <button className="page-btn" disabled={(page + 1) * PAGE_SIZE >= total} onClick={() => setPage(p => p + 1)}>›</button>
+          <button className="page-btn" disabled={(page + 1) * pageSize >= total} onClick={() => setPage(p => p + 1)}>›</button>
         </div>
       </div>
 

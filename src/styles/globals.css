@@ -417,10 +417,14 @@
       .quote-detail-grid { grid-template-columns: 1fr !important; }
       .nq-addr-row { grid-template-columns: 1fr !important; }
 
-      /* Buttons */
-      .btn { padding: 10px 14px; font-size: 13px; }
-      .btn-sm { padding: 7px 10px; font-size: 11px; }
+      /* Buttons — bigger touch targets on mobile */
+      .btn { padding: 12px 16px; font-size: 13px; min-height: 44px; }
+      .btn-sm { padding: 9px 12px; font-size: 11px; min-height: 36px; }
       .btn-primary { width: 100%; justify-content: center; }
+      /* Bigger checkbox/radio tap target */
+      input[type="checkbox"], input[type="radio"] { min-width: 18px; min-height: 18px; }
+      /* Page buttons bigger */
+      .page-btn { padding: 10px 18px; min-height: 40px; }
 
       /* Toast at bottom above nav */
       .toast-wrap { top: auto; bottom: 68px; right: 12px; left: 12px; }
@@ -582,6 +586,10 @@
 
     /* Checkbox in tables */
     table input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--gold); cursor: pointer; }
+
+    /* Phone links */
+    a[href^="tel:"] { transition: color .15s; }
+    a[href^="tel:"]:hover { color: var(--gold) !important; }
 
     /* Required field indicator */
     .form-group label span[style] { font-size: 12px; }
