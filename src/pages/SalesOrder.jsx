@@ -43,7 +43,7 @@ export default function SalesOrder() {
 
   useEffect(() => { load(); }, []);
 
-  // File upload
+  // File upload (single-replace for signed_quote/quote_pdf, append for attachment)
   async function uploadFile(caseId, fileType, file) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { toast('檔案不可超過 10MB', 'error'); return; }
@@ -54,12 +54,24 @@ export default function SalesOrder() {
     try {
       const url = await storageUpload('case-files', fileName, file);
       let files = Array.isArray(c?.case_files) ? c.case_files.slice() : [];
-      files = files.filter(f => f.type !== fileType);
+      if (fileType !== 'attachment') {
+        files = files.filter(f => f.type !== fileType);
+      }
       files.push({ type: fileType, url, name: file.name, uploaded_at: new Date().toISOString() });
       await sbFetch(`cases?id=eq.${caseId}`, { method: 'PATCH', body: JSON.stringify({ case_files: files }) });
       toast('已上傳', 'success');
       load();
     } catch (e) { toast('上傳失敗: ' + e.message, 'error'); }
+  }
+
+  async function removeAttachment(caseId, fileUrl) {
+    const c = data.find(x => x.id === caseId);
+    const files = Array.isArray(c?.case_files) ? c.case_files.filter(f => f.url !== fileUrl) : [];
+    try {
+      await sbFetch(`cases?id=eq.${caseId}`, { method: 'PATCH', body: JSON.stringify({ case_files: files }) });
+      toast('已移除', 'success');
+      load();
+    } catch (e) { toast('操作失敗: ' + e.message, 'error'); }
   }
 
   async function removeFile(caseId, fileType) {
@@ -260,6 +272,34 @@ export default function SalesOrder() {
                             </label>
                           )}
                         </div>
+                      </div>
+                      {/* Other attachments */}
+                      <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 12px', background: 'var(--surface-2)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold)', letterSpacing: 1 }}>其他附件</div>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 11, color: 'var(--gold)', fontWeight: 600 }}>
+                            <span style={{ fontSize: 14 }}>+</span>上傳
+                            <input type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" multiple style={{ display: 'none' }} onChange={e => {
+                              Array.from(e.target.files).forEach(f => uploadFile(c.id, 'attachment', f));
+                              e.target.value = '';
+                            }} />
+                          </label>
+                        </div>
+                        {(() => {
+                          const attachments = files.filter(f => f.type === 'attachment');
+                          if (attachments.length === 0) return <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>尚無附件</div>;
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {attachments.map((f, i) => (
+                                <div key={f.url || i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, padding: '3px 0', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
+                                  <a href={f.url} target="_blank" rel="noreferrer" style={{ color: 'var(--text)', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.name}>{f.name || '附件'}</a>
+                                  <span style={{ fontSize: 9, color: 'var(--text-muted)', flexShrink: 0 }}>{fmtD(f.uploaded_at)}</span>
+                                  <button onClick={() => removeAttachment(c.id, f.url)} style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 12, padding: '0 2px', flexShrink: 0 }}>✕</button>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div style={{ padding: '8px 18px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
