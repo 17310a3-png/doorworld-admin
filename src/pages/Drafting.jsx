@@ -9,6 +9,7 @@ export default function Drafting() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [noteInput, setNoteInput] = useState({});
+  const [lightbox, setLightbox] = useState(null);
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -87,6 +88,15 @@ export default function Drafting() {
                     <span>業務: {c.sales_person || '—'}</span>
                     {c.drawing_done_at && <span style={{ color: 'var(--success)' }}>完成於: {fmtDate(c.drawing_done_at).split(' ')[0]}</span>}
                   </div>
+                  {/* Site photos thumbnails */}
+                  {Array.isArray(c.site_photos) && c.site_photos.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                      {c.site_photos.map((url, i) => (
+                        <img key={i} src={url} alt="" onClick={() => setLightbox(url)}
+                          style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border)', cursor: 'zoom-in' }} />
+                      ))}
+                    </div>
+                  )}
                   {c.drawing_note ? (
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>備註: {c.drawing_note}</span>
@@ -105,6 +115,12 @@ export default function Drafting() {
             })}
         </div>
       }
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
+          <img src={lightbox} alt="" style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8 }} />
+          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 16, right: 16, width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&times;</button>
+        </div>
+      )}
     </div>
   );
 }
