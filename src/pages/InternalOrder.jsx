@@ -142,7 +142,7 @@ export default function InternalOrder() {
               factory_code: r.factory === 'tw' ? 'TW' : 'ZY',
               production_order_no: '',
               production_status: 'pending',
-              production_note: `${r.part || '整樘門'} / ${(procObj || {}).label || ''} / ${(SHIP_METHODS.find(s => s.value === r.ship) || {}).label || ''} ${r.wide ? '/ 超寬' : ''}`.trim(),
+              production_note: `${r.part || '整樘門'} / ${(procObj || {}).label || ''}(${procDays}天) / ${(SHIP_METHODS.find(s => s.value === r.ship) || {}).label || ''}(${shipDays}天)${twDays ? ' / 台廠加工(' + twDays + '天)' : ''}${r.wide ? ' / 超寬(+10天)' : ''}`.trim(),
               order_person: user?.display_name || '',
               estimated_delivery: est.toISOString().slice(0, 10),
               order_date: new Date().toISOString()
@@ -435,13 +435,29 @@ export default function InternalOrder() {
                 if (prods.length > 0) {
                   factoryCell = (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {prods.map((p, i) => (
-                        <div key={p.id || i} style={{ fontSize: 10, padding: '3px 6px', background: 'var(--surface-2)', borderRadius: 4, border: '1px solid var(--border)' }}>
-                          <span style={{ fontWeight: 700, color: p.factory_code === 'TW' ? '#3b82f6' : 'var(--gold)' }}>{p.factory_code === 'TW' ? '台廠' : '陸廠'}</span>
-                          <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>{p.production_note || ''}</span>
-                          <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>{p.production_status === 'pending' ? '待處理' : p.production_status}</span>
-                        </div>
-                      ))}
+                      {prods.map((p, i) => {
+                        const estDate = p.estimated_delivery ? fmtD(p.estimated_delivery) : '—';
+                        // Calculate days from order_date to estimated_delivery
+                        let totalDays = '';
+                        if (p.order_date && p.estimated_delivery) {
+                          const d1 = new Date(p.order_date);
+                          const d2 = new Date(p.estimated_delivery);
+                          totalDays = Math.round((d2 - d1) / 86400000) + '天';
+                        }
+                        return (
+                          <div key={p.id || i} style={{ fontSize: 10, padding: '4px 8px', background: 'var(--surface-2)', borderRadius: 4, border: '1px solid var(--border)', lineHeight: 1.6 }}>
+                            <div>
+                              <span style={{ fontWeight: 700, color: p.factory_code === 'TW' ? '#3b82f6' : 'var(--gold)' }}>{p.factory_code === 'TW' ? '台廠' : '陸廠'}</span>
+                              <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>{p.production_note || ''}</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                              {totalDays && <span style={{ color: 'var(--text-muted)' }}>共 {totalDays}</span>}
+                              <span style={{ color: 'var(--text-muted)' }}>預計到倉 {estDate}</span>
+                              <span style={{ color: p.production_status === 'pending' ? 'var(--gold)' : 'var(--success)', fontWeight: 600 }}>{p.production_status === 'pending' ? '待處理' : p.production_status}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 } else {
