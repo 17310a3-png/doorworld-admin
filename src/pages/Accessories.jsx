@@ -7,12 +7,18 @@ import { useConfirm } from '../components/UI/Confirm';
 import Modal from '../components/UI/Modal';
 
 
+const CATEGORY_LABELS = {
+  lock: '門鎖', hinge: '鉸鏈', closer: '門弓器', frame: '門框', sill: '門檻',
+  handle: '把手', seal: '封條', accessory: '其他配件'
+};
+
 export default function Accessories() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState({ open: false, data: null });
   const [imageUrl, setImageUrl] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [catFilter, setCatFilter] = useState('all');
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -80,6 +86,7 @@ export default function Accessories() {
 
   const d = modal.data || {};
   const categories = [...new Set(rows.map(r => r.category).filter(Boolean))];
+  const filteredRows = catFilter === 'all' ? rows : rows.filter(r => r.category === catFilter);
 
   const inputStyle = { padding: '9px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%' };
 
@@ -89,10 +96,18 @@ export default function Accessories() {
         <div className="page-title-wrap"><div className="page-title">五金配件</div><div className="page-subtitle">管理門鎖、鉸鏈、把手等五金配件</div></div>
         <button className="btn btn-primary" onClick={() => openModal(null)}>+ 新增配件</button>
       </div>
+      {!loading && rows.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+          {[['all', `全部 (${rows.length})`], ...categories.map(c => [c, `${CATEGORY_LABELS[c] || c} (${rows.filter(r => r.category === c).length})`])].map(([val, label]) => {
+            const on = catFilter === val;
+            return <button key={val} onClick={() => setCatFilter(val)} style={{ padding: '5px 11px', borderRadius: 6, border: `1px solid ${on ? 'var(--gold)' : 'var(--border)'}`, background: on ? 'var(--gold-dim)' : 'var(--surface-2)', color: on ? 'var(--gold)' : 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontWeight: on ? 700 : 500 }}>{label}</button>;
+          })}
+        </div>
+      )}
       {loading ? <div className="loading"><div className="spinner" /><br />載入中...</div> :
-        rows.length === 0 ? <div className="empty"><div className="icon">🔩</div>尚無配件資料</div> :
+        filteredRows.length === 0 ? <div className="empty"><div className="icon">🔩</div>{catFilter === 'all' ? '尚無配件資料' : '此分類無配件'}</div> :
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-          {rows.map(a => (
+          {filteredRows.map(a => (
             <div key={a.id} style={{ background: 'var(--surface-low)', borderRadius: 'var(--radius)', padding: 14, border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div style={{ flex: 1 }}>
@@ -101,7 +116,7 @@ export default function Accessories() {
                     {a.fire_only && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: 'rgba(239,68,68,.1)', color: 'var(--danger)' }}>防火</span>}
                     {a.type === 'upgrade' && <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: 'rgba(59,130,246,.1)', color: '#3b82f6' }}>選配</span>}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{a.category || ''} {a.brand ? `· ${a.brand}` : ''}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{CATEGORY_LABELS[a.category] || a.category || ''} {a.brand ? `· ${a.brand}` : ''}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {a.image_url && <img src={a.image_url} alt="" style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 3, border: '1px solid var(--border)' }} />}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { sbFetch } from '../api/supabase';
 import { uploadFile as storageUpload } from '../api/storage';
 import { fmtDate, fmtPrice, CASE_STATUS_LABEL, CASE_STATUS_COLOR } from '../api/utils';
+import { printFormalQuote } from '../api/pdf';
 import { useToast } from '../components/UI/Toast';
 import { useConfirm } from '../components/UI/Confirm';
 import { useAuth } from '../contexts/AuthContext';
@@ -241,6 +242,7 @@ export default function SalesOrder() {
                         <span>匯款日 {fmtD(t.depositDate)}</span>
                         {c.product_code && <span style={{ fontFamily: 'monospace' }}>{c.product_code}</span>}
                         {c.is_fireproof && <span style={{ color: 'var(--danger)' }}>防火</span>}
+                        <button className="btn btn-ghost btn-sm" onClick={() => printFormalQuote(c)} style={{ fontSize: 10, borderColor: 'var(--gold)', color: 'var(--gold)', marginLeft: 'auto' }}>報價單 PDF</button>
                       </div>
                       {/* File upload boxes */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
@@ -323,6 +325,7 @@ export default function SalesOrder() {
                       {c.internal_order_date ? <span style={{ color: 'var(--success)' }}>內勤下單 {fmtD(c.internal_order_date)}</span> : <span style={{ color: 'var(--gold)' }}>內勤處理中</span>}
                       {c.factory_type && <span>{c.factory_type === 'tw' ? '台廠' : '陸廠'}</span>}
                       {c.estimated_arrival && <span>預計到倉 {fmtD(c.estimated_arrival)}</span>}
+                      <button className="btn btn-ghost btn-sm" onClick={() => printFormalQuote(c)} style={{ fontSize: 10, borderColor: 'var(--gold)', color: 'var(--gold)', marginLeft: 'auto' }}>報價單 PDF</button>
                     </div>
                     {/* Attachments for completed orders */}
                     <div style={{ padding: '6px 18px 10px', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid var(--border)' }}>

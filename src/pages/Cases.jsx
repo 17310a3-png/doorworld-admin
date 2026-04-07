@@ -9,8 +9,6 @@ import Modal from '../components/UI/Modal';
 import StatCard from '../components/UI/StatCard';
 import DateQuickFilter from '../components/UI/DateQuickFilter';
 
-const TABS = ['customer', 'measure', 'finance', 'progress', 'factory', 'status'];
-const TAB_LABELS = { customer: '客戶', measure: '丈量', finance: '財務', progress: '進度', factory: '工廠', status: '狀態' };
 const CTYPE_OPTIONS = [['','選擇'],['S','股東'],['C','直客'],['D','設計師'],['D1','D1(20堂+)'],['D2','D2(60堂+)'],['A','代理商'],['B','建商'],['CC','商會'],['DD','經銷商'],['E','員工'],['G','公機關'],['V','VIP'],['Z','親友'],['X','公司']];
 const SS_KEY = 'cases_filters_v1';
 
@@ -31,11 +29,8 @@ export default function Cases() {
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState({});
   const [modal, setModal] = useState({ open: false, data: null });
-  const [tab, setTab] = useState('customer');
   const [form, setForm] = useState({});
   const [initialForm, setInitialForm] = useState({});
-  const [productions, setProductions] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [batchStatus, setBatchStatus] = useState('');
   const searchRef = useRef(null);
@@ -101,14 +96,8 @@ export default function Cases() {
     const copy = { ...c };
     setForm(copy);
     setInitialForm(copy);
-    setTab('customer');
     setModal({ open: true, data: c });
-    setPayments([]);
-    setProductions([]);
     activeCaseRef.current = c.id;
-    const caseId = c.id;
-    sbFetch(`payments?case_id=eq.${caseId}&order=paid_at.desc`).then(p => { if (activeCaseRef.current === caseId) setPayments(p || []); }).catch(() => {});
-    sbFetch(`production?case_id=eq.${caseId}&order=created_at.desc`).then(p => { if (activeCaseRef.current === caseId) setProductions(p || []); }).catch(() => {});
   }
 
   function isDirty() {
@@ -376,104 +365,41 @@ export default function Cases() {
                   { background: 'var(--surface-high)', color: 'var(--text-muted)' }) }}>{CASE_STATUS_LABEL[s]}</span>
             ))}
           </div>
-          {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 14 }}>
-            {TABS.map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: '10px 6px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: tab === t ? 700 : 600, color: tab === t ? 'var(--gold)' : 'var(--text-muted)', borderBottom: tab === t ? '2px solid var(--gold)' : '2px solid transparent' }}>{TAB_LABELS[t]}</button>
-            ))}
+          {/* Section: 客戶資料 */}
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>客戶資料</div>
+          <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            {inp('客戶名稱', 'customer_name', 'text', true)}{inp('電話', 'customer_phone')}
+            {inp('聯繫人', 'contact_person')}{inp('Email', 'customer_email', 'email')}
+            <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>客戶型態</label><select value={form.customer_type || ''} onChange={e => setForm(f => ({ ...f, customer_type: e.target.value }))} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%' }}>{CTYPE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+            {inp('業務', 'sales_person')}
+            <div className="form-group" style={{ margin: 0, gridColumn: '1/-1' }}><label style={{ fontSize: 12 }}>案場地址</label><input value={form.case_address || ''} onChange={e => setForm(f => ({ ...f, case_address: e.target.value }))} className="search-box" style={{ padding: '8px 12px', fontSize: 13, minWidth: 0 }} /></div>
+            {saveBtn('儲存客戶資訊', () => saveTab({ customer_name: form.customer_name, customer_phone: form.customer_phone, contact_person: form.contact_person, customer_email: form.customer_email, customer_type: form.customer_type, sales_person: form.sales_person, case_address: form.case_address }))}
           </div>
-          {/* Tab content */}
-          {tab === 'customer' && (
+
+          {/* Section: 報價單資訊 */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10 }}>報價單資訊</div>
             <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {inp('訂單編號', 'order_no')}{inp('下單編號', 'factory_order_no')}{inp('業務', 'sales_person')}{inp('客戶名稱', 'customer_name', 'text', true)}
-              {inp('聯繫人', 'contact_person')}{inp('電話', 'customer_phone')}{inp('產品編號', 'product_code')}{inp('數量', 'quantity', 'number')}
-              <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>客戶型態</label><select value={form.customer_type || ''} onChange={e => setForm(f => ({ ...f, customer_type: e.target.value }))} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%' }}>{CTYPE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
-              <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>防火門</label><select value={String(form.is_fireproof || false)} onChange={e => setForm(f => ({ ...f, is_fireproof: e.target.value === 'true' }))} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%' }}><option value="false">NO</option><option value="true">YES</option></select></div>
-              <div className="form-group" style={{ margin: 0, gridColumn: '1/-1' }}><label style={{ fontSize: 12 }}>案場地址</label><input value={form.case_address || ''} onChange={e => setForm(f => ({ ...f, case_address: e.target.value }))} className="search-box" style={{ padding: '8px 12px', fontSize: 13, minWidth: 0 }} /></div>
-              {saveBtn('儲存客戶資訊', () => saveTab({ order_no: form.order_no, factory_order_no: form.factory_order_no, sales_person: form.sales_person, customer_name: form.customer_name, contact_person: form.contact_person, customer_phone: form.customer_phone, product_code: form.product_code, quantity: Number(form.quantity) || 1, customer_type: form.customer_type, is_fireproof: form.is_fireproof, case_address: form.case_address }))}
+              {inp('產品編號', 'product_code')}
+              <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>門型</label><div style={{ padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--text)' }}>{DOOR_TYPE_LABEL[form.door_type] || form.door_type || '—'}</div></div>
+              {inp('數量', 'quantity', 'number')}
+              <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>總價</label><div style={{ padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 'var(--radius)', fontSize: 14, color: 'var(--gold)', fontWeight: 700 }}>{fmtPrice(form.total_with_tax || form.official_price || form.quoted_price)}</div></div>
+              {inp('正式報價單號', 'formal_quote_no')}
+              <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>原始報價</label><div style={{ padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--text-muted)' }}>{fmtPrice(form.quoted_price)}</div></div>
+              {form.addon_items && (
+                <div className="form-group" style={{ margin: 0, gridColumn: '1/-1' }}>
+                  <label style={{ fontSize: 12 }}>附加項目明細</label>
+                  <div style={{ padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 'var(--radius)', fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{form.addon_items}</div>
+                </div>
+              )}
+              {form.official_note && (
+                <div className="form-group" style={{ margin: 0, gridColumn: '1/-1' }}>
+                  <label style={{ fontSize: 12 }}>報價備註</label>
+                  <div style={{ padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 'var(--radius)', fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{form.official_note}</div>
+                </div>
+              )}
             </div>
-          )}
-          {tab === 'measure' && (
-            <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {inp('丈量日期', 'measure_date', 'date')}{inp('丈量人員', 'measure_staff')}{inp('實測寬度(cm)', 'actual_width_cm', 'number')}{inp('實測高度(cm)', 'actual_height_cm', 'number')}
-              {inp('正式報價', 'official_price', 'number')}
-              <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>原始報價</label><div style={{ padding: '8px 12px', background: 'var(--surface-2)', borderRadius: 'var(--radius)', fontSize: 14, color: 'var(--text-muted)' }}>{fmtPrice(form.quoted_price)}</div></div>
-              <div className="form-group" style={{ margin: 0, gridColumn: '1/-1' }}><label style={{ fontSize: 12 }}>報價備註</label><textarea value={form.official_note || ''} onChange={e => setForm(f => ({ ...f, official_note: e.target.value }))} className="search-box" style={{ padding: '8px 12px', fontSize: 13, minHeight: 60, resize: 'vertical', minWidth: 0 }} /></div>
-              {saveBtn('儲存丈量/報價', () => saveTab({ measure_date: form.measure_date || null, measure_staff: form.measure_staff, actual_width_cm: Number(form.actual_width_cm) || null, actual_height_cm: Number(form.actual_height_cm) || null, official_price: Number(form.official_price) || null, official_note: form.official_note }))}
-            </div>
-          )}
-          {tab === 'finance' && (
-            <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {inp('丈量費', 'measure_fee', 'number')}{inp('丈量付訖日', 'measure_fee_paid_at', 'date')}
-              {inp('訂金50%', 'deposit_50', 'number')}{inp('訂金付訖日', 'deposit_50_paid_at', 'date')}
-              {inp('尾款', 'balance', 'number')}{inp('尾款付訖日', 'balance_paid_at', 'date')}
-              {inp('總價(含稅)', 'total_with_tax', 'number')}{inp('付清日', 'paid_complete_at', 'date')}
-              <div className="form-group" style={{ margin: 0, gridColumn: '1/-1' }}><label style={{ fontSize: 12 }}>發票號碼</label><input value={form.invoice_no || ''} onChange={e => setForm(f => ({ ...f, invoice_no: e.target.value }))} className="search-box" style={{ padding: '8px 12px', fontSize: 13, minWidth: 0 }} /></div>
-              {saveBtn('儲存財務', () => saveTab({ measure_fee: Number(form.measure_fee) || 0, measure_fee_paid_at: form.measure_fee_paid_at || null, deposit_50: Number(form.deposit_50) || null, deposit_50_paid_at: form.deposit_50_paid_at || null, balance: Number(form.balance) || null, balance_paid_at: form.balance_paid_at || null, total_with_tax: Number(form.total_with_tax) || null, paid_complete_at: form.paid_complete_at || null, invoice_no: form.invoice_no || null }))}
-              {payments.length > 0 && <div style={{ gridColumn: '1/-1', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold)', marginBottom: 8 }}>付款紀錄</div>
-                {payments.map(p => <div key={p.id} style={{ fontSize: 12, padding: '4px 0', display: 'flex', justifyContent: 'space-between' }}><span>{p.payment_type} — {p.payment_method || ''}</span><span style={{ color: 'var(--gold)', fontWeight: 600 }}>{fmtPrice(p.amount)}</span></div>)}
-              </div>}
-            </div>
-          )}
-          {tab === 'progress' && (
-            <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {inp('下單日', 'order_date', 'date')}{inp('簽約月', 'contract_month')}
-              {inp('站框日期', 'frame_date', 'date')}{inp('預計到倉', 'estimated_arrival', 'date')}
-              {inp('實際到倉', 'actual_arrival', 'date')}{inp('安裝日期', 'install_date', 'date')}
-              {inp('維修日期', 'repair_date', 'date')}
-              {saveBtn('儲存進度', () => saveTab({ order_date: form.order_date || null, contract_month: form.contract_month, frame_date: form.frame_date || null, estimated_arrival: form.estimated_arrival || null, actual_arrival: form.actual_arrival || null, install_date: form.install_date || null, repair_date: form.repair_date || null }))}
-            </div>
-          )}
-          {tab === 'factory' && (
-            <div>
-              {productions.length === 0 ? <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>尚無工廠訂單</div> :
-                productions.map(p => (
-                  <div key={p.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 10, overflow: 'hidden' }}>
-                    <div style={{ background: 'var(--dark)', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <strong style={{ fontSize: 13, color: 'var(--gold)' }}>{p.factory_code} {p.production_order_no}</strong>
-                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{p.production_status}</span>
-                    </div>
-                    <div style={{ padding: 12 }}>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                        {[['下單', p.confirmed_order], ['精雕', p.engraving_status], ['油漆', p.paint_status], ['裝配', p.assembly_status], ['驗收', p.inspection_status]].map(([l, v]) => (
-                          <span key={l} style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, background: v ? 'rgba(16,185,129,.15)' : 'var(--surface-high)', color: v ? '#10b981' : 'var(--text-muted)' }}>{l}{v ? ' ✔' : ''}</span>
-                        ))}
-                      </div>
-                      {p.production_note && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>備註: {p.production_note}</div>}
-                      {p.workshop_shipment && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>出貨: {fmtDate(p.workshop_shipment)}</div>}
-                      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={async () => {
-                          const note = prompt('備註:', p.production_note || '');
-                          const status = prompt('狀態 (pending/confirmed/engraving/painting/assembly/inspection/shipped/installed):', p.production_status || 'pending');
-                          if (status === null) return;
-                          await sbFetch(`production?id=eq.${p.id}`, { method: 'PATCH', body: JSON.stringify({ production_note: note, production_status: status, updated_at: new Date().toISOString() }) });
-                          toast('已更新', 'success');
-                          sbFetch(`production?case_id=eq.${modal.data.id}&order=created_at.desc`).then(r => setProductions(r || []));
-                        }}>編輯</button>
-                        <button className="btn btn-danger btn-sm" onClick={async () => {
-                          if (!window.confirm('確定刪除？')) return;
-                          await sbFetch(`production?id=eq.${p.id}`, { method: 'DELETE' });
-                          toast('已刪除', 'success');
-                          sbFetch(`production?case_id=eq.${modal.data.id}&order=created_at.desc`).then(r => setProductions(r || []));
-                        }}>刪除</button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              <button className="btn btn-ghost" style={{ width: '100%', marginTop: 10, borderColor: 'var(--gold)', color: 'var(--gold)' }}
-                onClick={async () => { const code = prompt('工廠代號 (ZY/TW/MF):') || 'ZY'; const no = prompt('訂單編號:') || ''; await sbFetch('production', { method: 'POST', headers: { 'Prefer': 'return=minimal' }, body: JSON.stringify({ case_id: modal.data.id, case_no: form.case_no, factory_code: code.toUpperCase(), production_order_no: no, production_status: 'pending', order_person: user?.display_name || '' }) }); toast('已新增', 'success'); sbFetch(`production?case_id=eq.${modal.data.id}&order=created_at.desc`).then(p => setProductions(p || [])); }}>+ 新增工廠訂單</button>
-            </div>
-          )}
-          {tab === 'status' && (
-            <div className="form-grid" style={{ gridTemplateColumns: '1fr', gap: 12 }}>
-              <div className="form-group" style={{ margin: 0 }}><label style={{ fontSize: 12 }}>備註</label><textarea value={form.note || ''} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} className="search-box" style={{ padding: '8px 12px', fontSize: 13, minHeight: 70, resize: 'vertical', minWidth: 0 }} /></div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ margin: 0, flex: 1 }}><label style={{ fontSize: 12 }}>狀態</label><select value={form.status || 'new'} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}>{CASE_STEPS.map(s => <option key={s} value={s}>{CASE_STATUS_LABEL[s]}</option>)}<option value="cancelled">已取消</option></select></div>
-                <button className="btn btn-primary" disabled={saving} onClick={() => saveTab({ status: form.status, note: form.note })}>{saving ? '儲存中...' : '儲存'}</button>
-              </div>
-            </div>
-          )}
+          </div>
         </>}
       </Modal>
     </div>
