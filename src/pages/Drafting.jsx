@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { sbFetch } from '../api/supabase';
 import { fmtDate, CASE_STATUS_LABEL, CASE_STATUS_COLOR } from '../api/utils';
 import { useToast } from '../components/UI/Toast';
+import { useConfirm } from '../components/UI/Confirm';
 import StatCard from '../components/UI/StatCard';
 
 export default function Drafting() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [noteInput, setNoteInput] = useState({});
   const toast = useToast();
+  const confirm = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -18,6 +21,37 @@ export default function Drafting() {
   }
 
   useEffect(() => { load(); }, []);
+
+  async function markDone(c) {
+    const note = noteInput[c.id] || '';
+    confirm('確認製圖完成', `${c.order_no || c.case_no} — ${c.customer_name || ''}`, async () => {
+      try {
+        await sbFetch(`cases?id=eq.${c.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            drawing_note: note || '製圖完成',
+            drawing_done_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+        });
+        toast('已標記製圖完成', 'success');
+        load();
+      } catch (e) { toast(e.message, 'error'); }
+    });
+  }
+
+  async function undoDone(c) {
+    confirm('取消製圖完成？', `將 ${c.order_no || c.case_no} 退回待製圖狀態`, async () => {
+      try {
+        await sbFetch(`cases?id=eq.${c.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ drawing_note: null, drawing_done_at: null, updated_at: new Date().toISOString() })
+        });
+        toast('已退回待製圖', 'success');
+        load();
+      } catch (e) { toast(e.message, 'error'); }
+    });
+  }
 
   const drafted = data.filter(c => c.drawing_note).length;
 
@@ -47,11 +81,25 @@ export default function Drafting() {
                       <span className="badge" style={{ background: c.drawing_note ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)', color: c.drawing_note ? '#10b981' : '#ef4444' }}>{c.drawing_note ? '已製圖' : '待製圖'}</span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap', marginBottom: c.drawing_note ? 0 : 8 }}>
                     <span>丈量完成: {c.measured_at ? fmtDate(c.measured_at).split(' ')[0] : '—'}</span>
                     <span>實測尺寸: {c.actual_width_cm && c.actual_height_cm ? `${c.actual_width_cm} × ${c.actual_height_cm} cm` : '—'}</span>
                     <span>業務: {c.sales_person || '—'}</span>
+                    {c.drawing_done_at && <span style={{ color: 'var(--success)' }}>完成於: {fmtDate(c.drawing_done_at).split(' ')[0]}</span>}
                   </div>
+                  {c.drawing_note ? (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>備註: {c.drawing_note}</span>
+                      <button className="btn btn-ghost btn-sm" onClick={() => undoDone(c)} style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 'auto' }}>退回待製圖</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <input placeholder="製圖備註（選填）" value={noteInput[c.id] || ''} onChange={e => setNoteInput(p => ({ ...p, [c.id]: e.target.value }))}
+                        style={{ flex: 1, padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)' }}
+                        onKeyDown={e => { if (e.key === 'Enter') markDone(c); }} />
+                      <button className="btn btn-primary btn-sm" onClick={() => markDone(c)} style={{ fontSize: 11, whiteSpace: 'nowrap' }}>製圖完成</button>
+                    </div>
+                  )}
                 </div>
               );
             })}
