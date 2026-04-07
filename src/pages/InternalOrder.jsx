@@ -139,7 +139,8 @@ export default function InternalOrder() {
               production_status: 'pending',
               production_note: `${r.part || '整樘門'} / ${(procObj || {}).label || ''} / ${(SHIP_METHODS.find(s => s.value === r.ship) || {}).label || ''} ${r.wide ? '/ 超寬' : ''}`.trim(),
               order_person: user?.display_name || '',
-              estimated_arrival: est.toISOString().slice(0, 10)
+              estimated_delivery: est.toISOString().slice(0, 10),
+              order_date: new Date().toISOString()
             })
           });
         }
