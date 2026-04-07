@@ -35,8 +35,9 @@ export default function InternalOrder() {
   const [data, setData] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [factoryRows, setFactoryRows] = useState({}); // caseId -> rows
+  const [factoryRows, setFactoryRows] = useState({}); // caseId -> rows (for pending orders)
   const [singleForm, setSingleForm] = useState({}); // caseId -> { factory, proc, ship, wide }
+  const [prodRecords, setProdRecords] = useState({}); // caseId -> production[] (for done orders)
   const [rejectedCount, setRejectedCount] = useState(0);
   const toast = useToast();
   const confirmDialog = useConfirm();
@@ -45,13 +46,17 @@ export default function InternalOrder() {
   async function load() {
     setLoading(true);
     try {
-      let allData = await sbFetch('cases?select=*&status=in.(deposit_paid,production)&order=created_at.desc&limit=200') || [];
-      // Count rejected
-      try {
-        const rejData = await sbFetch('cases?select=id&rejected_reason=not.is.null&status=eq.deposit_paid') || [];
-        setRejectedCount(Array.isArray(rejData) ? rejData.length : 0);
-      } catch { setRejectedCount(0); }
-      setData(allData);
+      const [allData, rejData, prods] = await Promise.all([
+        sbFetch('cases?select=*&status=in.(deposit_paid,production)&order=created_at.desc&limit=200'),
+        sbFetch('cases?select=id&rejected_reason=not.is.null&status=eq.deposit_paid').catch(() => []),
+        sbFetch('production?select=*&order=created_at.asc').catch(() => [])
+      ]);
+      setRejectedCount(Array.isArray(rejData) ? rejData.length : 0);
+      // Group production records by case_id
+      const prodMap = {};
+      (prods || []).forEach(p => { (prodMap[p.case_id] = prodMap[p.case_id] || []).push(p); });
+      setProdRecords(prodMap);
+      setData(allData || []);
     } catch (e) { toast(e.message, 'error'); }
     setLoading(false);
   }
@@ -425,10 +430,26 @@ export default function InternalOrder() {
                   );
                 }
               } else {
-                const factoryLabel = c.factory_type === 'tw' ? '台廠' : c.factory_type === 'cn' ? '陸廠' : '—';
-                const procLabel = (PROC_TYPES.find(p => p.value === c.processing_type) || {}).label || '—';
-                const shipLabel = c.shipping_method === 'sea' ? '海運' : c.shipping_method === 'air' ? '空運' : '—';
-                factoryCell = <span style={{ fontSize: 11 }}>{factoryLabel} / {procLabel} / {shipLabel}{c.is_overwidth && <span style={{ color: 'var(--danger)' }}> 超寬</span>}</span>;
+                // Show production records if available, otherwise fallback to case fields
+                const prods = prodRecords[c.id] || [];
+                if (prods.length > 0) {
+                  factoryCell = (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {prods.map((p, i) => (
+                        <div key={p.id || i} style={{ fontSize: 10, padding: '3px 6px', background: 'var(--surface-2)', borderRadius: 4, border: '1px solid var(--border)' }}>
+                          <span style={{ fontWeight: 700, color: p.factory_code === 'TW' ? '#3b82f6' : 'var(--gold)' }}>{p.factory_code === 'TW' ? '台廠' : '陸廠'}</span>
+                          <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>{p.production_note || ''}</span>
+                          <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>{p.production_status === 'pending' ? '待處理' : p.production_status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                } else {
+                  const factoryLabel = c.factory_type === 'tw' ? '台廠' : c.factory_type === 'cn' ? '陸廠' : '—';
+                  const procLabel = (PROC_TYPES.find(p => p.value === c.processing_type) || {}).label || '—';
+                  const shipLabel = c.shipping_method === 'sea' ? '海運' : c.shipping_method === 'air' ? '空運' : '—';
+                  factoryCell = <span style={{ fontSize: 11 }}>{factoryLabel} / {procLabel} / {shipLabel}{c.is_overwidth && <span style={{ color: 'var(--danger)' }}> 超寬</span>}</span>;
+                }
               }
 
               // Action buttons
