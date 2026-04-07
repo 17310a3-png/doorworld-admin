@@ -31,20 +31,25 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restore session from stored JWT
+    // Restore session: use dw_auth (server data, no encoding issues) + dw_token (for expiry check)
     const token = sessionStorage.getItem('dw_token');
+    const savedAuth = sessionStorage.getItem('dw_auth');
     if (token) {
       const payload = decodeJwtPayload(token);
       if (payload && payload.exp > Date.now() / 1000) {
-        setUser({
-          id: payload.sub,
-          display_name: payload.displayName,
-          username: payload.username,
-          isAdmin: payload.isAdmin,
-          permissions: payload.permissions || {}
-        });
+        // Prefer dw_auth (clean server data) over JWT payload
+        if (savedAuth) {
+          try { setUser(JSON.parse(savedAuth)); } catch { sessionStorage.removeItem('dw_auth'); }
+        } else {
+          setUser({
+            id: payload.sub,
+            display_name: payload.displayName,
+            username: payload.username,
+            isAdmin: payload.isAdmin,
+            permissions: payload.permissions || {}
+          });
+        }
       } else {
-        // Token expired
         sessionStorage.removeItem('dw_token');
         sessionStorage.removeItem('dw_auth');
       }
