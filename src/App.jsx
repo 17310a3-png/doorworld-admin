@@ -73,10 +73,19 @@ function AppContent() {
   const location = useLocation();
   const title = TITLES[location.pathname] || 'Admin';
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('sidebar_collapsed') === 'true');
+
+  function toggleCollapse() {
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebar_collapsed', String(next));
+      return next;
+    });
+  }
 
   return (
-    <div id="app" style={{ display: 'block' }}>
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div id="app" style={{ display: 'block' }} className={sidebarCollapsed ? 'sidebar-is-collapsed' : ''}>
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} collapsed={sidebarCollapsed} onToggleCollapse={toggleCollapse} />
       <div className="layout">
         <Topbar title={title} onMenuClick={() => setSidebarOpen(true)} />
         <div className="main">

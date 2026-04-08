@@ -36,7 +36,7 @@ const NAV_ITEMS = [
   { path: '/aiprompt', label: 'AI 提示詞', icon: 'psychology' },
 ];
 
-export default function Sidebar({ open, onClose }) {
+export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) {
   const { user, logout, hasPerm } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,38 +49,51 @@ export default function Sidebar({ open, onClose }) {
   return (
     <>
       <div className={`sidebar-overlay ${open ? 'active' : ''}`} onClick={onClose} />
-      <div className={`sidebar ${open ? 'open' : ''}`} id="sidebar">
+      <div className={`sidebar ${open ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`} id="sidebar">
+        {/* Brand */}
         <div className="sidebar-brand">
           <div className="sidebar-brand-logo">
             <img src={import.meta.env.BASE_URL + 'logo.png'} alt="門的世界" />
           </div>
-          <div className="sidebar-brand-sub">Admin Console</div>
+          {!collapsed && <div className="sidebar-brand-sub">Admin Console</div>}
         </div>
+
+        {/* Nav */}
         <div className="sidebar-nav">
           {NAV_ITEMS.map((item, i) => {
-            if (item.divider) return <div key={i} className="sidebar-section-divider" />;
-            if (item.section) return <div key={i} className="sidebar-section">{item.section}</div>;
+            if (item.divider) return collapsed ? null : <div key={i} className="sidebar-section-divider" />;
+            if (item.section) return collapsed ? null : <div key={i} className="sidebar-section">{item.section}</div>;
             if (item.adminOnly && !user?.isAdmin) return null;
             if (item.perm && !hasPerm(item.perm, 'view')) return null;
             const active = location.pathname === item.path;
             return (
               <div key={item.path}
                 className={`nav-item ${active ? 'active' : ''}`}
-                onClick={() => handleNav(item.path)}>
+                onClick={() => handleNav(item.path)}
+                title={collapsed ? item.label : undefined}>
                 <span className="material-symbols-outlined">{item.icon}</span>
-                {item.label}
+                {!collapsed && <span className="nav-label">{item.label}</span>}
               </div>
             );
           })}
         </div>
+
+        {/* Footer */}
         <div className="sidebar-footer">
-          <div className="sidebar-avatar">
-            <span className="material-symbols-outlined">manage_accounts</span>
+          <div className="sidebar-collapse-btn hide-mobile" onClick={onToggleCollapse} title={collapsed ? '展開側邊欄' : '收合側邊欄'}>
+            <span className="material-symbols-outlined" style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform .3s ease' }}>chevron_left</span>
           </div>
-          <div>
-            <div className="sidebar-user-name">{user?.display_name || '管理員'}</div>
-            <div className="sidebar-user-role">{user?.isAdmin ? 'Administrator' : 'Staff'}</div>
-          </div>
+          {!collapsed && (
+            <>
+              <div className="sidebar-avatar">
+                <span className="material-symbols-outlined">manage_accounts</span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="sidebar-user-name">{user?.display_name || '管理員'}</div>
+                <div className="sidebar-user-role">{user?.isAdmin ? 'Administrator' : 'Staff'}</div>
+              </div>
+            </>
+          )}
           <div className="sidebar-logout" onClick={logout} title="登出">
             <span className="material-symbols-outlined">logout</span>
           </div>
