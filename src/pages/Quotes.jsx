@@ -194,10 +194,10 @@ export default function Quotes() {
               const [sl, sc, sb] = STATUS_MAP[q.status] || STATUS_MAP.draft;
               return (
                 <tr key={q.id} style={{ cursor: 'pointer' }} onClick={() => openDetail(q)}>
-                  <td><strong style={{ fontFamily: 'monospace', fontSize: 12 }}>{q.quote_no || '—'}</strong></td>
-                  <td>{q.customer_name || '—'}</td>
-                  <td>{q.customer_phone || '—'}</td>
-                  <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{q.product_code || '—'}</td>
+                  <td><strong style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--gold)' }}>{q.quote_no || '—'}</strong></td>
+                  <td><strong style={{ fontWeight: 600, fontSize: 13 }}>{q.customer_name || '—'}</strong></td>
+                  <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{q.customer_phone || '—'}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-muted)' }}>{q.product_code || '—'}</td>
                   <td>{DOOR_TYPE_LABEL[q.door_type] || q.door_type || '—'}</td>
                   <td style={{ textAlign: 'center' }}>{q.quantity || 1}</td>
                   <td className="price">{fmtPrice(q.total_price)}</td>

@@ -673,7 +673,7 @@
       #page-ordering #ord-stats { grid-template-columns: 1fr 1fr !important; }
 
       /* Boss view: grids → single column */
-      #boss-grid-top, #boss-grid-bottom { grid-template-columns: 1fr !important; }
+      #boss-grid-top, #boss-grid-bottom, .boss-grid { grid-template-columns: 1fr !important; }
 
       /* Boss urgent wrap */
       #boss-urgent-wrap { padding: 14px 16px !important; }

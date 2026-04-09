@@ -306,10 +306,10 @@ export default function Cases() {
               return (
                 <tr key={c.id} style={{ cursor: 'pointer', background: d.delayed ? 'rgba(239,68,68,.04)' : undefined, boxShadow: d.delayed ? 'inset 3px 0 0 var(--danger)' : undefined }}>
                   <td onClick={e => e.stopPropagation()}><input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} style={{ cursor: 'pointer' }} /></td>
-                  <td onClick={() => openCase(c)}><strong style={{ fontFamily: 'monospace', fontSize: 11 }}>{c.order_no || c.case_no || '—'}</strong></td>
+                  <td onClick={() => openCase(c)}><strong style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--gold)' }}>{c.order_no || c.case_no || '—'}</strong></td>
                   <td onClick={() => openCase(c)}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span>{c.customer_name || '—'}</span>
+                      <strong style={{ fontWeight: 600 }}>{c.customer_name || '—'}</strong>
                       {c.customer_phone && <a href={`tel:${c.customer_phone}`} onClick={e => e.stopPropagation()} title={c.customer_phone} style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: 11 }}>📞</a>}
                     </div>
                   </td>

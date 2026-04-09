@@ -96,39 +96,46 @@ export default function BossView() {
         <div className="loading"><div className="spinner" /><br />載入中...</div>
       ) : (
         <>
-          {/* ── KPI Stats ── */}
-          <div className="stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
-            <StatCard label="前置作業" value={preCases.length} />
-            <StatCard label="進行中" value={active.length} color="var(--gold)" />
-            <StatCard label="逾期" value={delayed.length} color="var(--danger)" style={{ borderColor: 'rgba(239,68,68,.3)' }} />
-            <StatCard label="已結案" value={completedCases.length} color="var(--success)" />
-            <StatCard label="總營收" value={fmtPrice(totalRev)} />
-          </div>
-
-          {/* ── Alert ── */}
-          {delayed.length > 0 ? (
-            <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 'var(--radius)', fontSize: 13, marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: 6 }}>⚠ {delayed.length} 件逾期需處理</div>
+          {/* ── Urgent alert — TOP ── */}
+          {delayed.length > 0 && (
+            <div style={{ borderLeft: '3px solid var(--danger)', borderRadius: 'var(--radius)', background: 'rgba(239,68,68,.04)', padding: '18px 20px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--danger)', fontSize: 22, fontVariationSettings: "'FILL' 1" }}>warning</span>
+                <span style={{ fontFamily: 'var(--font-heading)', fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>需立即處理 — {delayed.length} 件逾期</span>
+              </div>
               {delayed.slice(0, 5).map(c => {
                 const d = calcDelay(c);
                 return (
-                  <div key={c.id} style={{ padding: '2px 0', display: 'flex', gap: 8 }}>
-                    <span className="mono" style={{ color: 'var(--text-muted)' }}>{c.order_no || c.case_no}</span>
-                    <span>{c.customer_name || ''}</span>
-                    <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{d.milestone} {d.days}天</span>
+                  <div key={c.id} style={{ padding: '4px 0', display: 'flex', gap: 10, borderBottom: '1px solid rgba(239,68,68,.1)' }}>
+                    <span className="mono" style={{ color: 'var(--text-muted)', fontSize: 11 }}>{c.order_no || c.case_no}</span>
+                    <span style={{ flex: 1, fontWeight: 500 }}>{c.customer_name || ''}</span>
+                    <span style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 12 }}>{d.milestone} {d.days}天</span>
+                    <span style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 600 }}>{fmtPrice(c.total_with_tax || c.official_price || 0)}</span>
                   </div>
                 );
               })}
               {delayed.length > 5 && <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 4 }}>...另有 {delayed.length - 5} 件</div>}
             </div>
-          ) : (
+          )}
+
+          {/* ── KPI Stats ── */}
+          <div className="stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+            <StatCard label="前置作業" value={preCases.length} icon="pending_actions" />
+            <StatCard label="進行中" value={active.length} color="var(--gold)" icon="play_circle" />
+            <StatCard label="逾期" value={delayed.length} color="var(--danger)" style={{ borderColor: 'rgba(239,68,68,.3)' }} icon="warning" />
+            <StatCard label="已結案" value={completedCases.length} color="var(--success)" icon="check_circle" />
+            <StatCard label="總營收" value={fmtPrice(totalRev)} icon="payments" />
+          </div>
+
+          {/* ── Status banner ── */}
+          {delayed.length === 0 && (
             <div style={{ padding: '10px 16px', background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.2)', borderRadius: 'var(--radius)', color: '#10b981', fontWeight: 600, fontSize: 13, marginBottom: 20 }}>
               ✔ 所有案件進度正常
             </div>
           )}
 
           {/* ── Two-column layout ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+          <div className="boss-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
             {/* Pipeline steps */}
             <div style={{ background: 'var(--surface-low)', borderRadius: 'var(--radius)', padding: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>各階段案件數</div>
@@ -155,26 +162,8 @@ export default function BossView() {
             </div>
           </div>
 
-          {/* ── Urgent (delayed) detail ── */}
-          {delayed.length > 0 && (
-            <div style={{ background: 'var(--surface-low)', borderRadius: 'var(--radius)', padding: 20, marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>緊急案件</div>
-              {delayed.slice(0, 8).map(c => {
-                const d = calcDelay(c);
-                return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(239,68,68,.12)' }}>
-                    <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.order_no || c.case_no}</span>
-                    <span style={{ flex: 1, fontWeight: 500 }}>{c.customer_name || ''}</span>
-                    <span style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 12 }}>{d.milestone} {d.days}天</span>
-                    <span style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 600 }}>{fmtPrice(c.total_with_tax || c.official_price || 0)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           {/* ── Two-column: Unpaid + Production ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="boss-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {/* Unpaid */}
             <div style={{ background: 'var(--surface-low)', borderRadius: 'var(--radius)', padding: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>未收款案件</div>

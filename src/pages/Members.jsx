@@ -179,10 +179,10 @@ export default function Members() {
             : rows.map(m => (
               <tr key={m.id} style={m.need_contact ? { background: 'rgba(239,68,68,.04)' } : undefined}>
                 <td>
-                  <strong>{m.display_name || '—'}</strong>
+                  <strong style={{ fontWeight: 600, fontSize: 13 }}>{m.display_name || '—'}</strong>
                   {m.need_contact && <div style={{ fontSize: 9, color: 'var(--danger)', fontWeight: 700 }}>需聯繫</div>}
                 </td>
-                <td>{m.phone ? <a href={`tel:${m.phone}`} style={{ color: 'var(--text)', textDecoration: 'none' }} title="點擊撥打">{m.phone}</a> : '—'}</td>
+                <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.phone ? <a href={`tel:${m.phone}`} style={{ color: 'var(--text-muted)', textDecoration: 'none' }} title="點擊撥打">{m.phone}</a> : '—'}</td>
                 <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.company || '—'}</td>
                 <td style={{ fontSize: 11 }}>{m.customer_type || '—'}</td>
                 <td>
