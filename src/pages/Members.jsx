@@ -98,8 +98,12 @@ export default function Members() {
 
   async function toggleManualMode(m) {
     try {
-      await sbFetch(`members?id=eq.${m.id}`, { method: 'PATCH', body: JSON.stringify({ manual_mode: !m.manual_mode }) });
-      toast(!m.manual_mode ? '已切換為人工模式' : '已恢復AI自動回覆', 'success');
+      const turningOff = m.manual_mode;
+      const payload = turningOff
+        ? { manual_mode: false, need_contact: false, manual_notified_at: null }
+        : { manual_mode: true };
+      await sbFetch(`members?id=eq.${m.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      toast(turningOff ? '已恢復 AI 自動回覆' : '已切換為人工模式', 'success');
       load();
     } catch (e) { toast(e.message, 'error'); }
   }
