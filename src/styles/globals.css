@@ -74,9 +74,13 @@
     }
 
     body {
-      font-family: var(--font-body); min-height: 100vh; font-size: 15px;
+      font-family: var(--font-body); min-height: 100vh; font-size: 16px;
       background: var(--bg); color: var(--text);
     }
+
+    /* Order/quote number monospace labels — match surrounding text size */
+    strong[style*="monospace"],
+    td[style*="monospace"] { font-size: inherit !important; }
 
     /* ── Login ── */
     #login-screen {
@@ -292,7 +296,7 @@
       background: var(--surface-low); border-radius: var(--radius); overflow: hidden;
       border: 1px solid rgba(90,80,65,0.1);
     }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
     thead { background: rgba(36,36,36,0.8); }
     th { padding: 11px 16px; text-align: left; font-weight: 600; color: var(--gold); font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; white-space: nowrap; }
     td { padding: 13px 16px; vertical-align: middle; color: var(--text); }
