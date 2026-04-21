@@ -387,13 +387,8 @@ export async function exportFormalQuoteExcel(c) {
     // Label above image (E4:F4 already merged earlier — just update value/style)
     s(ws.getCell('E4'), { fill: DARK, font: { size: 8, color: { argb: 'FF888888' } }, align: { horizontal: 'center', vertical: 'middle' } });
     ws.getCell('E4').value = '效果圖（僅供參考）';
-  } else {
-    // No image: fill the zone with cream
-    for (let row = imgTopRow; row <= imgBotRow; row++) {
-      ws.mergeCells(`E${row}:F${row}`);
-      s(ws.getCell(`E${row}`), { fill: CREAM });
-    }
   }
+  // No image fallback: cells E:F are already merged & cream-filled during row construction
 
   // ── Download ────────────────────────────────────────────────────────────
   const buffer = await wb.xlsx.writeBuffer();
