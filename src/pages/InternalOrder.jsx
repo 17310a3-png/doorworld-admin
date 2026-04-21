@@ -60,7 +60,9 @@ export default function InternalOrder() {
     setLoading(true);
     try {
       const [allData, rejData, prods] = await Promise.all([
-        sbFetch('cases?select=*&status=in.(deposit_paid,production)&order=created_at.desc&limit=200'),
+        // 內勤下單頁只顯示「業務已下單」的案件 (sales_order_date 不為空)
+        // 已退回業務的案件 sales_order_date=null，會自動排除
+        sbFetch('cases?select=*&status=in.(deposit_paid,production)&sales_order_date=not.is.null&order=created_at.desc&limit=200'),
         sbFetch('cases?select=id&rejected_reason=not.is.null&status=eq.deposit_paid').catch(() => []),
         sbFetch('production?select=*&order=created_at.asc').catch(() => [])
       ]);
