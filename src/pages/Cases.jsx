@@ -37,6 +37,8 @@ export default function Cases() {
   const [batchStatus, setBatchStatus] = useState('');
   const [deleteIssues, setDeleteIssues] = useState([]); // 開啟 modal 時主動檢查
   const [bulkBlockers, setBulkBlockers] = useState({ open: false, list: [] }); // 批量刪除被擋的清單
+  const [paymentCount, setPaymentCount] = useState(0); // 該 case 的 payments 紀錄數
+  const [productionCount, setProductionCount] = useState(0); // 該 case 的 production 紀錄數
   const searchRef = useRef(null);
   const toast = useToast();
   const confirm = useConfirm();
@@ -102,11 +104,21 @@ export default function Cases() {
     setInitialForm(copy);
     setModal({ open: true, data: c });
     activeCaseRef.current = c.id;
-    // 管理員開 modal 時主動檢查刪除阻礙
     setDeleteIssues([]);
+    setPaymentCount(0);
+    setProductionCount(0);
     if (user?.isAdmin) {
-      const issues = await checkDownstream(c);
-      if (activeCaseRef.current === c.id) setDeleteIssues(issues);
+      // 平行查 issues + payments + production
+      const [issues, pays, prods] = await Promise.all([
+        checkDownstream(c),
+        sbFetch(`payments?case_id=eq.${c.id}&select=id`).catch(() => []),
+        sbFetch(`production?case_id=eq.${c.id}&production_status=neq.cancelled&select=id`).catch(() => [])
+      ]);
+      if (activeCaseRef.current === c.id) {
+        setDeleteIssues(issues);
+        setPaymentCount((pays || []).length);
+        setProductionCount((prods || []).length);
+      }
     }
   }
 
@@ -576,6 +588,34 @@ export default function Cases() {
                       load();
                     })}
                   >清除下單日期{hasOrderDate && <span style={{ marginLeft: 4, fontSize: 9 }}>●</span>}</button>
+
+                  {/* 刪除 payments 紀錄 */}
+                  <button disabled={paymentCount === 0} style={btnStyle(paymentCount > 0)}
+                    title={paymentCount > 0 ? `刪除 payments 表的 ${paymentCount} 筆付款紀錄` : '無付款紀錄'}
+                    onClick={() => paymentCount > 0 && confirm(`刪除 ${paymentCount} 筆付款紀錄?`, `將從 payments 表刪除所有跟此案件相關的紀錄。\n\n這是真實財務交易紀錄，刪除後無法復原。`, async () => {
+                      try {
+                        await sbFetch(`payments?case_id=eq.${modal.data.id}`, { method: 'DELETE' });
+                        toast(`已刪除 ${paymentCount} 筆付款紀錄`, 'success');
+                        setPaymentCount(0);
+                        setDeleteIssues(await checkDownstream(modal.data));
+                        load();
+                      } catch (e) { toast('刪除失敗: ' + e.message, 'error'); }
+                    })}
+                  >刪除付款紀錄 {paymentCount > 0 ? `(${paymentCount})` : ''}{paymentCount > 0 && <span style={{ marginLeft: 4, fontSize: 9 }}>●</span>}</button>
+
+                  {/* 刪除未取消的 production 紀錄 */}
+                  <button disabled={productionCount === 0} style={btnStyle(productionCount > 0)}
+                    title={productionCount > 0 ? `刪除 production 表的 ${productionCount} 筆未取消生產紀錄` : '無未取消的生產紀錄'}
+                    onClick={() => productionCount > 0 && confirm(`刪除 ${productionCount} 筆生產紀錄?`, `將從 production 表刪除所有未取消的生產紀錄。\n\n如果工廠已實際開始作業，請改在「台灣工廠」頁面個別處理。`, async () => {
+                      try {
+                        await sbFetch(`production?case_id=eq.${modal.data.id}&production_status=neq.cancelled`, { method: 'DELETE' });
+                        toast(`已刪除 ${productionCount} 筆生產紀錄`, 'success');
+                        setProductionCount(0);
+                        setDeleteIssues(await checkDownstream(modal.data));
+                        load();
+                      } catch (e) { toast('刪除失敗: ' + e.message, 'error'); }
+                    })}
+                  >刪除生產紀錄 {productionCount > 0 ? `(${productionCount})` : ''}{productionCount > 0 && <span style={{ marginLeft: 4, fontSize: 9 }}>●</span>}</button>
                 </div>
                 <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-muted)' }}>
                   紅色 ● = 此案件有資料可清；灰色 = 已乾淨。其他項目（payments、台廠生產、大陸工廠）請到對應頁面用對應按鈕清除。
