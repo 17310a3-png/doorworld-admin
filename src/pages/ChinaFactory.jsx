@@ -67,9 +67,9 @@ export default function ChinaFactory() {
   async function clearCnData(c) {
     if (!user?.isAdmin) { toast('僅管理員可清除', 'error'); return; }
     confirm('清除大陸工廠資料？',
-      `${c.formal_quote_no || c.case_no}\n\n會清除以下 ${CN_FIELDS.length} 個 cn_* 欄位（訂單編號、狀態、各階段日期、運送資訊、備註）。\n\n此動作無法復原，但案件本身不會被刪除。`,
+      `${c.formal_quote_no || c.case_no}\n\n會清除以下：\n• ${CN_FIELDS.length} 個 cn_* 欄位（訂單編號、狀態、各階段日期、運送資訊、備註）\n• factory_type 路由（案件會從此頁消失）\n• estimated_arrival 預計到倉日\n\n此動作無法復原。案件本身不會刪除，但會回到「已內勤下單但未指定工廠」狀態。\n\n如要完整退回業務，請改用「內勤下單」頁的「退回業務」。`,
       async () => {
-        const body = { updated_at: new Date().toISOString() };
+        const body = { updated_at: new Date().toISOString(), factory_type: null, estimated_arrival: null };
         CN_FIELDS.forEach(f => { body[f] = null; });
         try {
           await sbFetch(`cases?id=eq.${c.id}`, { method: 'PATCH', body: JSON.stringify(body) });
@@ -82,7 +82,8 @@ export default function ChinaFactory() {
   async function load() {
     setLoading(true);
     try {
-      setData(await sbFetch('cases?select=*&status=in.(production,shipped)&order=internal_order_date.asc&limit=200') || []);
+      // 只顯示路由到大陸工廠的案件 (factory_type='cn')，已清除 factory_type 的不會出現
+      setData(await sbFetch('cases?select=*&status=in.(production,shipped)&factory_type=eq.cn&order=internal_order_date.asc&limit=200') || []);
     } catch (e) { toast(e.message, 'error'); }
     setLoading(false);
   }
