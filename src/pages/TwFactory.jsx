@@ -4,6 +4,7 @@ import { fmtPrice } from '../api/utils';
 import StatCard from '../components/UI/StatCard';
 import { useToast } from '../components/UI/Toast';
 import { useConfirm } from '../components/UI/Confirm';
+import { useAuth } from '../contexts/AuthContext';
 
 function fmtD(d) {
   return d ? new Date(d).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) : '—';
@@ -28,6 +29,26 @@ export default function TwFactory() {
   const [loading, setLoading] = useState(true);
   const toast = useToast();
   const confirm = useConfirm();
+  const { user } = useAuth();
+
+  // 批量刪除所有已取消的工單（管理員）
+  async function deleteAllCancelled() {
+    if (!user?.isAdmin) { toast('僅管理員可批量刪除', 'error'); return; }
+    const cancelledRows = rows.filter(r => r.production_status === 'cancelled');
+    if (cancelledRows.length === 0) return;
+    confirm(`刪除 ${cancelledRows.length} 筆已取消工單？`, '此動作無法復原。', async () => {
+      let okCount = 0, failCount = 0;
+      for (const p of cancelledRows) {
+        try {
+          await sbFetch(`production?id=eq.${p.id}`, { method: 'DELETE' });
+          okCount++;
+        } catch { failCount++; }
+      }
+      if (failCount === 0) toast(`已刪除 ${okCount} 筆`, 'success');
+      else toast(`成功 ${okCount} 筆，失敗 ${failCount} 筆`, 'warning');
+      load();
+    });
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,11 +136,16 @@ export default function TwFactory() {
         <StatCard label="已取消" value={cancelled.length} color="var(--danger)" />
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
         {filterBtn(`加工中 (${active.length})`, 'active')}
         {filterBtn(`已出貨 (${shipped.length})`, 'shipped', 'var(--success)')}
         {filterBtn(`全部 (${rows.length})`, 'all')}
         {cancelled.length > 0 && filterBtn(`已取消 (${cancelled.length})`, 'cancelled', 'var(--danger)')}
+        {filter === 'cancelled' && cancelled.length > 0 && user?.isAdmin && (
+          <button onClick={deleteAllCancelled} style={{ marginLeft: 'auto', padding: '5px 11px', borderRadius: 6, border: '1px solid var(--danger)', background: 'rgba(239,68,68,.08)', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            🗑 刪除全部已取消 ({cancelled.length})
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -205,6 +231,20 @@ export default function TwFactory() {
                       </button>
                     )}
                     <button className="btn btn-danger btn-sm" onClick={() => deleteProd(p)} style={{ fontSize: 12 }}>刪除</button>
+                  </div>
+                )}
+                {/* 已取消 — 只顯示刪除（管理員）+ 還原 */}
+                {p.production_status === 'cancelled' && (
+                  <div style={{ padding: '6px 16px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => confirm('還原工單？', '將狀態改回「待加工」', () => updateStatus(p.id, 'pending'))}
+                      style={{ fontSize: 12, borderColor: 'var(--gold)', color: 'var(--gold)' }}>
+                      ↩ 還原
+                    </button>
+                    {user?.isAdmin && (
+                      <button className="btn btn-danger btn-sm" onClick={() => deleteProd(p)} style={{ fontSize: 12 }}>
+                        🗑 刪除
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
