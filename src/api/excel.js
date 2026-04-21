@@ -384,8 +384,7 @@ export async function exportFormalQuoteExcel(c) {
       br: { col: 6, row: imgBotRow },            // col G (exclusive), row imgBotRow+1
       editAs: 'oneCell',
     });
-    // Label above image
-    ws.mergeCells(`E4:F4`);
+    // Label above image (E4:F4 already merged earlier — just update value/style)
     s(ws.getCell('E4'), { fill: DARK, font: { size: 8, color: { argb: 'FF888888' } }, align: { horizontal: 'center', vertical: 'middle' } });
     ws.getCell('E4').value = '效果圖（僅供參考）';
   } else {
