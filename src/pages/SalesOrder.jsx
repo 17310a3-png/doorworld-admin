@@ -113,6 +113,26 @@ export default function SalesOrder() {
     });
   }
 
+  // 撤回業務下單（僅管理員）— 把 sales_order_date 設為 null
+  async function withdrawSalesOrder(caseId) {
+    if (!user?.isAdmin) { toast('僅管理員可撤回下單', 'error'); return; }
+    const c = data.find(x => x.id === caseId);
+    if (c?.internal_order_date) {
+      toast('此案件內勤已下單，請改用「內勤下單」頁的「退回業務」', 'error');
+      return;
+    }
+    confirmDialog('撤回業務下單', `${c?.formal_quote_no || c?.case_no}\n\n會把「業務下單日」清除，案件回到「待下單」狀態。是否確認？`, async () => {
+      try {
+        await sbFetch(`cases?id=eq.${caseId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ sales_order_date: null, updated_at: new Date().toISOString() })
+        });
+        toast('已撤回下單', 'success');
+        load();
+      } catch (e) { toast('撤回失敗: ' + e.message, 'error'); }
+    });
+  }
+
   async function soSubmit(caseId) {
     const c = data.find(x => x.id === caseId);
     const files = Array.isArray(c?.case_files) ? c.case_files : [];
@@ -325,7 +345,15 @@ export default function SalesOrder() {
                       {c.internal_order_date ? <span style={{ color: 'var(--success)' }}>內勤下單 {fmtD(c.internal_order_date)}</span> : <span style={{ color: 'var(--gold)' }}>內勤處理中</span>}
                       {c.factory_type && <span>{c.factory_type === 'tw' ? '台廠' : '陸廠'}</span>}
                       {c.estimated_arrival && <span>預計到倉 {fmtD(c.estimated_arrival)}</span>}
-                      <button className="btn btn-ghost btn-sm" onClick={() => printFormalQuote(c)} style={{ fontSize: 10, borderColor: 'var(--gold)', color: 'var(--gold)', marginLeft: 'auto' }}>報價單 PDF</button>
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => printFormalQuote(c)} style={{ fontSize: 10, borderColor: 'var(--gold)', color: 'var(--gold)' }}>報價單 PDF</button>
+                        {user?.isAdmin && !c.internal_order_date && (
+                          <button onClick={() => withdrawSalesOrder(c.id)} title="撤回下單（僅管理員）— 會把案件回到待下單"
+                            style={{ padding: '4px 10px', fontSize: 10, background: 'transparent', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 4, cursor: 'pointer' }}>
+                            ↩ 撤回下單
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {/* Attachments for completed orders */}
                     <div style={{ padding: '6px 18px 10px', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid var(--border)' }}>

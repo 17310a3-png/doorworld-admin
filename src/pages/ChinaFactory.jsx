@@ -2,8 +2,18 @@ import { useState, useEffect } from 'react';
 import { sbFetch } from '../api/supabase';
 import { fmtDate, fmtPrice } from '../api/utils';
 import { useToast } from '../components/UI/Toast';
+import { useConfirm } from '../components/UI/Confirm';
+import { useAuth } from '../contexts/AuthContext';
 import Modal from '../components/UI/Modal';
 import StatCard from '../components/UI/StatCard';
+
+// 大陸工廠所有相關欄位（清除時要全部設為 null）
+const CN_FIELDS = [
+  'cn_ilande_no', 'cn_status', 'cn_order_date', 'cn_delivery_days', 'cn_est_delivery',
+  'cn_confirm_order', 'cn_engraving', 'cn_painting', 'cn_assembly', 'cn_inspection',
+  'cn_factory_ship', 'cn_sea_ship', 'cn_air_ship', 'cn_sea_deadline', 'cn_air_deadline',
+  'cn_note', 'cn_ordered_by'
+];
 
 const PROC_TYPES = [
   { value: 'plain', label: '純板', days: 0 },
@@ -50,6 +60,24 @@ export default function ChinaFactory() {
   const [editForm, setEditForm] = useState({});
   const [advanceInput, setAdvanceInput] = useState({}); // {caseId: 'input value'}
   const toast = useToast();
+  const confirm = useConfirm();
+  const { user } = useAuth();
+
+  // 清除大陸工廠所有資料（僅管理員）
+  async function clearCnData(c) {
+    if (!user?.isAdmin) { toast('僅管理員可清除', 'error'); return; }
+    confirm('清除大陸工廠資料？',
+      `${c.formal_quote_no || c.case_no}\n\n會清除以下 ${CN_FIELDS.length} 個 cn_* 欄位（訂單編號、狀態、各階段日期、運送資訊、備註）。\n\n此動作無法復原，但案件本身不會被刪除。`,
+      async () => {
+        const body = { updated_at: new Date().toISOString() };
+        CN_FIELDS.forEach(f => { body[f] = null; });
+        try {
+          await sbFetch(`cases?id=eq.${c.id}`, { method: 'PATCH', body: JSON.stringify(body) });
+          toast('已清除大陸工廠資料', 'success');
+          load();
+        } catch (e) { toast('清除失敗: ' + e.message, 'error'); }
+      });
+  }
 
   async function load() {
     setLoading(true);
@@ -381,7 +409,13 @@ export default function ChinaFactory() {
                       </td>
                     )}
                     <td style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => openEditRow(c)} style={{ fontSize: 12, padding: '3px 8px' }} title="編輯整行">✎</button>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEditRow(c)} style={{ fontSize: 12, padding: '3px 8px' }} title="編輯整行">✎</button>
+                        {user?.isAdmin && (
+                          <button onClick={() => clearCnData(c)} title="清除大陸工廠資料（僅管理員）"
+                            style={{ background: 'transparent', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 4, padding: '3px 8px', fontSize: 12, cursor: 'pointer' }}>🗑</button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

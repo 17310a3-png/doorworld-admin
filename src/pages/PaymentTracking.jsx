@@ -4,6 +4,11 @@ import { fmtPrice } from '../api/utils';
 import StatCard from '../components/UI/StatCard';
 import { useToast } from '../components/UI/Toast';
 import { useConfirm } from '../components/UI/Confirm';
+import { useAuth } from '../contexts/AuthContext';
+import Modal from '../components/UI/Modal';
+
+const PAY_TYPE_LABEL = { measurement: '丈量費', deposit: '訂金', balance: '尾款', other: '其他' };
+const PAY_METHOD_LABEL = { cash: '現金', transfer: '匯款', card: '信用卡', other: '其他' };
 
 function fmtD(d) { return d ? new Date(d).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) : ''; }
 
@@ -29,8 +34,10 @@ export default function PaymentTracking() {
   const [cases, setCases] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [paymentsModal, setPaymentsModal] = useState({ open: false, caseRow: null, list: [] });
   const toast = useToast();
   const confirm = useConfirm();
+  const { user } = useAuth();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,8 +111,42 @@ export default function PaymentTracking() {
     });
   }
 
+  // 取消單一付款標記（僅管理員）
+  async function unmarkPaid(caseId, field, label) {
+    if (!user?.isAdmin) { toast('僅管理員可取消標記', 'error'); return; }
+    confirm(`取消「${label}」收款標記？`, '會清除收款日期，案件回復為未收款狀態。', async () => {
+      try {
+        await sbFetch(`cases?id=eq.${caseId}`, { method: 'PATCH', body: JSON.stringify({ [field]: null, updated_at: new Date().toISOString() }) });
+        toast('已取消標記', 'success');
+        load();
+      } catch (e) { toast('操作失敗: ' + e.message, 'error'); }
+    });
+  }
+
+  // 開啟付款紀錄 modal — 列出 payments 表的紀錄
+  async function openPayments(c) {
+    try {
+      const list = await sbFetch(`payments?case_id=eq.${c.id}&select=*&order=created_at.desc`) || [];
+      setPaymentsModal({ open: true, caseRow: c, list });
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // 刪除單筆 payments 紀錄（僅管理員）
+  async function deletePayment(p) {
+    if (!user?.isAdmin) { toast('僅管理員可刪除付款紀錄', 'error'); return; }
+    confirm('確認刪除這筆付款紀錄？', `${PAY_TYPE_LABEL[p.payment_type] || p.payment_type} ${fmtPrice(p.amount)}\n\n此動作無法復原。`, async () => {
+      try {
+        await sbFetch(`payments?id=eq.${p.id}`, { method: 'DELETE' });
+        toast('已刪除付款紀錄', 'success');
+        // 重新載入 modal 跟主表
+        openPayments(paymentsModal.caseRow);
+        load();
+      } catch (e) { toast('刪除失敗: ' + e.message, 'error'); }
+    });
+  }
+
   // Payment cell
-  function PayCell({ amt, paid, paidDate, field, caseId }) {
+  function PayCell({ amt, paid, paidDate, field, caseId, label }) {
     if (!amt) return <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>—</td>;
     if (paid) {
       return (
@@ -114,6 +155,13 @@ export default function PaymentTracking() {
             {fmtPrice(amt)} <span className="material-symbols-outlined" style={{ fontSize: 14, verticalAlign: 'middle' }}>check_circle</span>
           </div>
           {paidDate && <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>{fmtD(paidDate)}</div>}
+          {user?.isAdmin && (
+            <button
+              onClick={() => unmarkPaid(caseId, field, label)}
+              title="取消收款標記（管理員）"
+              style={{ marginTop: 3, fontSize: 9, padding: '1px 6px', background: 'transparent', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 3, cursor: 'pointer' }}
+            >取消</button>
+          )}
         </td>
       );
     }
@@ -199,17 +247,23 @@ export default function PaymentTracking() {
                       <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{c.sales_person || ''}</div>
                     </td>
                     <td className="price" style={{ color: 'var(--gold)', fontSize: 14 }}>{fmtPrice(total)}</td>
-                    <PayCell amt={mfee} paid={mPaid} paidDate={c.measure_fee_paid_at} field="measure_fee_paid_at" caseId={c.id} />
-                    <PayCell amt={dep} paid={dPaid} paidDate={c.deposit_50_paid_at} field="deposit_50_paid_at" caseId={c.id} />
-                    <PayCell amt={bal} paid={bPaid} paidDate={c.balance_paid_at} field="balance_paid_at" caseId={c.id} />
+                    <PayCell amt={mfee} paid={mPaid} paidDate={c.measure_fee_paid_at} field="measure_fee_paid_at" caseId={c.id} label="丈量費" />
+                    <PayCell amt={dep} paid={dPaid} paidDate={c.deposit_50_paid_at} field="deposit_50_paid_at" caseId={c.id} label="訂金 50%" />
+                    <PayCell amt={bal} paid={bPaid} paidDate={c.balance_paid_at} field="balance_paid_at" caseId={c.id} label="尾款" />
                     <td><span className="badge" style={{ background: st.bg, color: st.color, whiteSpace: 'nowrap' }}>{st.label}</span></td>
                     <td>
-                      {status !== 'paid' && (
-                        <button className="btn btn-ghost btn-sm" onClick={() => markAllPaid(c.id)}
-                          style={{ fontSize: 10, padding: '3px 8px', color: 'var(--success)', borderColor: 'var(--success)' }}>
-                          全部收齊
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {status !== 'paid' && (
+                          <button className="btn btn-ghost btn-sm" onClick={() => markAllPaid(c.id)}
+                            style={{ fontSize: 10, padding: '3px 8px', color: 'var(--success)', borderColor: 'var(--success)' }}>
+                            全部收齊
+                          </button>
+                        )}
+                        <button className="btn btn-ghost btn-sm" onClick={() => openPayments(c)}
+                          style={{ fontSize: 10, padding: '3px 8px', color: 'var(--gold)', borderColor: 'var(--gold)' }}>
+                          付款紀錄
                         </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -218,6 +272,53 @@ export default function PaymentTracking() {
           </table>
         </div>
       )}
+
+      {/* 付款紀錄 modal */}
+      <Modal
+        open={paymentsModal.open}
+        onClose={() => setPaymentsModal({ open: false, caseRow: null, list: [] })}
+        title={`付款紀錄 — ${paymentsModal.caseRow?.formal_quote_no || paymentsModal.caseRow?.case_no || ''}`}
+        maxWidth={620}
+        footer={<button className="btn btn-ghost" onClick={() => setPaymentsModal({ open: false, caseRow: null, list: [] })}>關閉</button>}
+      >
+        {paymentsModal.list.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>
+            無付款紀錄（payments 表）
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {paymentsModal.list.map(p => (
+              <div key={p.id} style={{ padding: '10px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold)', padding: '2px 8px', background: 'var(--gold-dim)', borderRadius: 4 }}>
+                  {PAY_TYPE_LABEL[p.payment_type] || p.payment_type || '—'}
+                </span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                  {fmtPrice(p.amount)}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {PAY_METHOD_LABEL[p.payment_method] || p.payment_method || '—'}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                  {p.created_at ? new Date(p.created_at).toLocaleDateString('zh-TW') : ''}
+                  {p.recorded_by ? ` · ${p.recorded_by}` : ''}
+                </span>
+                {user?.isAdmin && (
+                  <button
+                    onClick={() => deletePayment(p)}
+                    title="刪除此筆付款（管理員）"
+                    style={{ padding: '3px 8px', background: 'transparent', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 4, fontSize: 11, cursor: 'pointer' }}
+                  >🗑 刪除</button>
+                )}
+                {p.note && (
+                  <div style={{ width: '100%', fontSize: 11, color: 'var(--text-muted)', paddingLeft: 4 }}>
+                    備註：{p.note}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

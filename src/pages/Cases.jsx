@@ -158,14 +158,31 @@ export default function Cases() {
   // ── 下游資料檢查（回傳問題清單，空陣列 = 可刪） ──
   async function checkDownstream(c) {
     const issues = [];
+    // 1. 收款紀錄 (payments 表)
     try {
       const pays = await sbFetch(`payments?case_id=eq.${c.id}&select=id&limit=1`);
-      if (pays?.length > 0) issues.push('已有收款紀錄（請到「收款追蹤」清除）');
+      if (pays?.length > 0) issues.push('已有收款紀錄（請到「收款追蹤」刪除）');
     } catch {}
+    // 2. 收款狀態欄位（cases 表）
+    if (c.measure_fee_paid_at || c.deposit_50_paid_at || c.balance_paid_at) {
+      issues.push('案件已標記收款（請到「收款追蹤」取消標記）');
+    }
+    // 3. 案件狀態進階
     if (ADVANCED_STATUSES.includes(c.status)) issues.push(`案件狀態為「${CASE_STATUS_LABEL[c.status] || c.status}」`);
-    if (c.sales_order_date) issues.push('業務已下單給內勤');
-    if (c.internal_order_date) issues.push('內勤已下單給工廠');
-    if (Array.isArray(c.case_files) && c.case_files.length > 0) issues.push(`已上傳 ${c.case_files.length} 個附件`);
+    // 4. 業務 / 內勤下單
+    if (c.sales_order_date) issues.push('業務已下單給內勤（請到「業務下單」撤回）');
+    if (c.internal_order_date) issues.push('內勤已下單給工廠（請到「內勤下單」退回業務）');
+    // 5. 台灣工廠生產記錄 (production 表)
+    try {
+      const prods = await sbFetch(`production?case_id=eq.${c.id}&select=id&limit=1`);
+      if (prods?.length > 0) issues.push('已有台廠生產記錄（請到「台灣工廠」刪除）');
+    } catch {}
+    // 6. 大陸工廠資料
+    if (c.cn_order_date || c.cn_ilande_no) issues.push('已下大陸工廠單（請到「大陸工廠」清除）');
+    // 7. 安裝排程
+    if (c.install_date) issues.push('已排定安裝日期（請到「安裝排程」取消）');
+    // 8. 附件
+    if (Array.isArray(c.case_files) && c.case_files.length > 0) issues.push(`已上傳 ${c.case_files.length} 個附件（請到「業務下單」清除）`);
     return issues;
   }
 
