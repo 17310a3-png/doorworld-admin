@@ -70,6 +70,12 @@ export async function printFormalQuote(c) {
     }
   });
 
+  // 特殊需求自訂項目
+  let reqExtraRows = '';
+  (vm.pricing.reqExtras || []).forEach(r => {
+    reqExtraRows += `<tr><td class="tdl">${esc(r.name)}${r.unit ? ' ('+esc(r.unit)+')' : ''}</td><td class="tdv ra">${fmtP(r.amount)}</td></tr>`;
+  });
+
   // Accessory block with images
   const acc = vm.accessories;
   const accessoryBlock = acc.length === 0 ? '' : `
@@ -261,6 +267,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:2px}
       ${vm.pricing.discountRate < 1 ? `<tr><td class="tdl">折扣 (${Math.round(vm.pricing.discountRate * 100)}%)</td><td class="tdv ra">${fmtP(vm.pricing.discounted)}</td></tr>` : ''}
       ${vm.pricing.installFee ? `<tr><td class="tdl">安裝費</td><td class="tdv ra">${fmtP(vm.pricing.installFee)}</td></tr>` : ''}
       ${vm.pricing.deliveryFee ? `<tr><td class="tdl">搬運費</td><td class="tdv ra">${fmtP(vm.pricing.deliveryFee)}</td></tr>` : ''}
+      ${reqExtraRows ? `<tr><td class="tdl" colspan="2" style="background:#1a1a1a;color:#c9a227;font-size:8px;font-weight:700;letter-spacing:2px;text-align:left">特殊需求附加</td></tr>${reqExtraRows}` : ''}
       ${addonRows ? `<tr><td class="tdl" colspan="2" style="background:#1a1a1a;color:#c9a227;font-size:8px;font-weight:700;letter-spacing:2px;text-align:left">追加施工費明細</td></tr>${addonRows}<tr><td class="tdl" style="text-align:right">小計金額</td><td class="tdv ra" style="font-weight:700;color:#c9a227">${fmtP(vm.pricing.addonTotal)}</td></tr>` : ''}
     </table>
     <div class="total-box">

@@ -36,8 +36,18 @@ export const QUOTE_TERMS = [
   '16. 如有任何疑問，請即時聯絡業務人員。',
 ];
 
-// 特殊需求清單（與後台表單一致）
-export const REQUIREMENT_OPTIONS = ['無', '拆舊', '回收', '佔框', '濕式施工', '乾式包框', '站框'];
+// 特殊需求內建清單（與後台表單一致；佔框已移除，留站框）
+export const REQUIREMENT_OPTIONS = ['無', '拆舊', '回收', '濕式施工', '乾式包框', '站框'];
+
+// 將 special_requirements 統一轉成 [{ name, amount, builtin }]
+// 兼容舊格式（string[]）跟新格式（object[]）
+export function normalizeRequirements(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(r => {
+    if (typeof r === 'string') return { name: r, amount: 0, builtin: true };
+    return { name: r.name || '', amount: r.amount || 0, builtin: !!r.builtin, unit: r.unit || '' };
+  }).filter(r => r.name);
+}
 
 // helpers
 export function fmtP(v) { return v ? 'NT$ ' + Number(v).toLocaleString() : '—'; }
@@ -117,9 +127,12 @@ export function buildFormalQuoteVM(c) {
   const widthCM = widthMM ? Math.round(widthMM / 10) : null;
   const heightCM = heightMM ? Math.round(heightMM / 10) : null;
 
-  // 特殊需求
-  const reqList = fd.special_requirements || [];
-  const reqString = REQUIREMENT_OPTIONS.map(r => (reqList.includes(r) ? '■' : '☐') + r).join('   ');
+  // 特殊需求（normalize 兼容新舊格式）
+  const reqs = normalizeRequirements(fd.special_requirements);
+  const reqNames = reqs.map(r => r.name);
+  const reqTotal = reqs.reduce((s, r) => s + (r.amount || 0), 0);
+  const reqString = REQUIREMENT_OPTIONS.map(r => (reqNames.includes(r) ? '■' : '☐') + r).join('   ');
+  const reqExtras = reqs.filter(r => !r.builtin && (r.amount || 0) > 0); // 自訂項目
 
   // 單價
   let unitPrice = fd.unit_price || extractUnitPriceFromNote(c.official_note);
@@ -135,7 +148,7 @@ export function buildFormalQuoteVM(c) {
   const installFee = c.install_fee || 0;
   const deliveryFee = fd.delivery_fee || 0;
   const measureFee = c.measure_fee || 3000;
-  const totalPrice = c.total_with_tax || (discounted + addon.total + installFee + deliveryFee);
+  const totalPrice = c.total_with_tax || (discounted + addon.total + installFee + deliveryFee + reqTotal);
   const deposit = c.deposit_50 || Math.round(totalPrice * 0.5);
   const balance = c.balance != null
     ? c.balance
@@ -188,8 +201,11 @@ export function buildFormalQuoteVM(c) {
       installMethod: fd.install_method || '甲方派送安裝',
     },
     requirements: {
-      list: reqList,
+      list: reqs,
+      names: reqNames,
       displayString: reqString,
+      extras: reqExtras,
+      extrasTotal: reqTotal,
     },
     accessories: fd.accessories || [],
     pricing: {
@@ -197,6 +213,7 @@ export function buildFormalQuoteVM(c) {
       installFee, deliveryFee, measureFee,
       addonItems: addon.items,
       addonTotal: addon.total,
+      reqExtras, reqTotal,
       totalPrice, deposit, balance,
     },
     payment: {

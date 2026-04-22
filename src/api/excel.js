@@ -374,6 +374,23 @@ export async function exportFormalQuoteExcel(c) {
   ws.mergeCells(`E${r}:F${r}`); valueCell(`E${r}`, fmtP(vm.pricing.addonTotal), { font: { bold: true, size: 12, color: { argb: GOLD } }, align: { horizontal: 'right', vertical: 'middle' } });
   ws.getRow(r).height = 22; r++;
 
+  // ── 8b. 特殊需求附加（自訂項目）──
+  if ((vm.pricing.reqExtras || []).length > 0) {
+    ws.mergeCells(`A${r}:F${r}`);
+    sectionHeader(`A${r}`, '▌ 特殊需求附加');
+    ws.getRow(r).height = 22; r++;
+    vm.pricing.reqExtras.forEach(it => {
+      labelCell(`A${r}`, it.name);
+      ws.mergeCells(`B${r}:D${r}`); valueCell(`B${r}`, it.unit ? `（${it.unit}）` : '');
+      ws.mergeCells(`E${r}:F${r}`); valueCell(`E${r}`, fmtP(it.amount), { align: { horizontal: 'right', vertical: 'middle' } });
+      ws.getRow(r).height = 20; r++;
+    });
+    labelCell(`A${r}`, '小計');
+    ws.mergeCells(`B${r}:D${r}`); valueCell(`B${r}`, '');
+    ws.mergeCells(`E${r}:F${r}`); valueCell(`E${r}`, fmtP(vm.pricing.reqTotal), { font: { bold: true, size: 12, color: { argb: GOLD } }, align: { horizontal: 'right', vertical: 'middle' } });
+    ws.getRow(r).height = 22; r++;
+  }
+
   // ── 9. 備註 ──
   if (vm.notes.general) {
     labelCell(`A${r}`, '備註事項');

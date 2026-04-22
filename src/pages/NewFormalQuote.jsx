@@ -35,6 +35,16 @@ const MATERIAL_OPTIONS = [
 const ACC_CATS = ['lock', 'hinge', 'sill', 'closer', 'frame'];
 const ACC_LABELS = { lock: '門鎖', hinge: '鉸鍊', sill: '門檻', closer: '門弓器', frame: '門框' };
 
+// 內建特殊需求（無金額）— 站框留下、佔框移除
+const BUILTIN_REQS = [
+  { key: 'none', label: '無', priceless: true },
+  { key: 'demolish', label: '拆舊' },
+  { key: 'recycle', label: '回收' },
+  { key: 'wet', label: '濕式施工' },
+  { key: 'dry', label: '乾式包框' },
+  { key: 'frame', label: '站框' }
+];
+
 export default function NewFormalQuote() {
   const toast = useToast();
   const { user } = useAuth();
@@ -54,8 +64,8 @@ export default function NewFormalQuote() {
   const [colorCards, setColorCards] = useState([]);
   const [panelStyles, setPanelStyles] = useState([]);
   const [artFrames, setArtFrames] = useState([]);
-  const [lockStyles, setLockStyles] = useState([]);
-  const [linkedCase, setLinkedCase] = useState(null); // 關聯的 case (含丈量資料)
+  const [serviceItems, setServiceItems] = useState([]); // 自訂附加項目
+  const [linkedCase, setLinkedCase] = useState(null);
   const [showProducts, setShowProducts] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -72,20 +82,19 @@ export default function NewFormalQuote() {
     width: '', height: '', qty: 1, unitPrice: '', discount: '1', installFee: 8000,
     addonItems: '', note: '', deliveryDays: 75, hasElevator: true, floor: 0,
     quoteId: '',
-    // ─ 公司報價單範本新增欄位 ─
     material: '', frontPanelStyle: '', backPanelStyle: '',
     deliveryFee: '', drawingNo: '', frameCount: '',
     measureFee: 3000,
     payMeasure: '', payDeposit: '', payBalance: '',
   });
 
-  const [accState, setAccState] = useState({}); // cat -> { useUpgrade: bool }
+  const [accState, setAccState] = useState({});
   const [calcResult, setCalcResult] = useState(null);
 
-  // Checkboxes — 加入「無、站框」
-  const [reqs, setReqs] = useState({ none: false, demolish: false, recycle: false, occupy: false, wet: false, dry: false, frame: false });
+  // 內建勾選 + 自訂項目勾選 (id -> bool)
+  const [reqs, setReqs] = useState({ none: false, demolish: false, recycle: false, wet: false, dry: false, frame: false });
+  const [customReqs, setCustomReqs] = useState({}); // service_items.id -> bool
 
-  // Auto-generate next sequence number for this month
   async function loadNextSeq(region, category, year, month) {
     try {
       const prefix = `${region}-${category}-${year}-${month}-`;
@@ -111,12 +120,11 @@ export default function NewFormalQuote() {
     sbFetch('color_cards?select=code,alt_code,name_en,name_zh,image_url&is_active=eq.true&order=sort_order.asc').then(d => setColorCards(d || [])).catch(() => {});
     sbFetch('panel_styles?select=*&is_active=eq.true&order=sort_order.asc').then(d => setPanelStyles(d || [])).catch(() => {});
     sbFetch('art_frames?select=code,name_zh,name_en,image_url&is_active=eq.true&order=sort_order.asc').then(d => setArtFrames(d || [])).catch(() => {});
-    sbFetch('lock_styles?select=code,name_zh,name_en,brand,image_url&is_active=eq.true&order=sort_order.asc').then(d => setLockStyles(d || [])).catch(() => {});
-    // Auto seq
+    sbFetch('service_items?select=*&is_active=eq.true&show_on_quote=eq.true&order=sort_order.asc,name.asc').then(d => setServiceItems(d || [])).catch(() => {});
     loadNextSeq(form.region, form.category, form.year, form.month).then(seq => setForm(f => ({ ...f, seq })));
   }, []);
 
-  // Calculate totals whenever relevant fields change
+  // Calculate totals
   useEffect(() => {
     const unitPrice = parseInt(form.unitPrice) || 0;
     const qty = parseInt(form.qty) || 1;
@@ -137,14 +145,24 @@ export default function NewFormalQuote() {
       }
     });
 
+    // 自訂特殊需求項目費用
+    const reqLines = [];
+    let reqTotal = 0;
+    serviceItems.forEach(it => {
+      if (customReqs[it.id]) {
+        reqTotal += (it.unit_price || 0);
+        reqLines.push([it.name + (it.unit ? ` (${it.unit})` : ''), it.unit_price || 0]);
+      }
+    });
+
     const doorSubtotal = unitPrice * qty;
     const discounted = Math.round(doorSubtotal * discount);
-    const total = discounted + addonTotal + installFee;
+    const total = discounted + addonTotal + installFee + reqTotal;
     const deposit = Math.round(total * 0.5);
     const balance = total - deposit;
 
-    setCalcResult({ unitPrice, qty, discount, doorSubtotal, discounted, addonTotal, addonLines, installFee, total, deposit, balance });
-  }, [form.unitPrice, form.qty, form.discount, form.installFee, form.addonItems]);
+    setCalcResult({ unitPrice, qty, discount, doorSubtotal, discounted, addonTotal, addonLines, installFee, total, deposit, balance, reqTotal, reqLines });
+  }, [form.unitPrice, form.qty, form.discount, form.installFee, form.addonItems, customReqs, serviceItems]);
 
   async function selectQuote(id) {
     setForm(f => ({ ...f, quoteId: id }));
@@ -162,11 +180,17 @@ export default function NewFormalQuote() {
       height: q.height_cm ? String(q.height_cm * 10) : '',
       unitPrice: q.unit_price ? String(q.unit_price) : ''
     }));
+    // 自動推導特殊需求 (從估價單欄位)
+    setReqs(r => ({
+      ...r,
+      demolish: !!q.demolition,
+      wet: q.install_type === 'wet',
+      dry: q.install_type === 'dry'
+    }));
     if (q.product_code) {
       setProductSearch(q.product_code);
       searchProducts(q.product_code);
     }
-    // 嘗試找關聯的 case 取得丈量資料
     if (q.case_id) {
       try {
         const cases = await sbFetch(`cases?id=eq.${q.case_id}&select=id,actual_width_cm,actual_height_cm,measure_date,measure_staff,measured_at`);
@@ -175,7 +199,6 @@ export default function NewFormalQuote() {
     }
   }
 
-  // 「從丈量資料填入」按鈕
   function fillFromMeasurement() {
     if (!linkedCase) return;
     setForm(f => ({
@@ -207,7 +230,6 @@ export default function NewFormalQuote() {
     setSelectedProduct(p);
     setProductSearch(p.full_code);
     setShowProducts(false);
-    // Auto-fill unit price
     let price = 0;
     if (form.fireType !== 'none') price = p.price_fire || p.price || 0;
     else if (form.doorType === 'single') price = p.price || 0;
@@ -236,20 +258,37 @@ export default function NewFormalQuote() {
     });
   }
 
+  // 收集特殊需求 (含金額)
+  function collectSpecialReqs() {
+    const out = [];
+    BUILTIN_REQS.forEach(r => {
+      if (reqs[r.key]) out.push({ name: r.label, amount: 0, builtin: true });
+    });
+    serviceItems.forEach(it => {
+      if (customReqs[it.id]) out.push({ id: it.id, name: it.name, amount: it.unit_price || 0, unit: it.unit });
+    });
+    return out;
+  }
+
   async function submit() {
     if (!form.contact) { toast('請填寫聯絡人', 'error'); return; }
     if (!form.unitPrice) { toast('請填寫門扇單價', 'error'); return; }
     const c = calcResult || {};
     const formalQuoteNo = `${form.region}-${form.category}-${form.year}-${form.month}-${form.seq || '001'}`;
-    const reqLabelMap = { none: '無', demolish: '拆舊', recycle: '回收', occupy: '佔框', wet: '濕式施工', dry: '乾式包框', frame: '站框' };
-    const specialReqs = Object.entries(reqs).filter(([, v]) => v).map(([k]) => reqLabelMap[k]).filter(Boolean);
+    const specialReqs = collectSpecialReqs();
+
+    // 找出選中的鎖（從 accessories）
+    const lockAcc = accessories.find(a => a.id === form.lockStyle);
 
     const formalData = {
       region: form.region, category: form.category, fire_type: form.fireType,
       door_direction: form.direction, frame_thickness: form.frameThick || null,
       panel_thickness: form.panelThick || null, art_frame: form.artFrame,
       delivery_type: form.deliveryType, door_color: form.color || null,
-      lock_style: form.lockStyle || null, special_requirements: specialReqs,
+      lock_style: lockAcc?.name || form.lockStyle || null,
+      lock_style_id: lockAcc?.id || null,
+      lock_style_image: lockAcc?.image_url || null,
+      special_requirements: specialReqs,
       install_method: form.installMethod,
       width_mm: parseInt(form.width) || null, height_mm: parseInt(form.height) || null,
       has_elevator: form.hasElevator,
@@ -257,7 +296,6 @@ export default function NewFormalQuote() {
       imported_quote_no: importedQuote?.quote_no || null,
       imported_quote_id: importedQuote?.id || null,
       accessories: collectAccessories(),
-      // ─ 公司報價單範本新增欄位 ─
       material: form.material || null,
       front_panel_style: form.frontPanelStyle || null,
       back_panel_style: form.backPanelStyle || null,
@@ -325,17 +363,14 @@ export default function NewFormalQuote() {
 
   const inputStyle = { padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--text)', fontFamily: 'var(--font-body)', width: '100%' };
   const c = calcResult || {};
-
-  // Accessories rendering
   const isFire = form.fireType !== 'none';
 
-  // ─── 共用元件 ─────────────────────────────────────────
   const sectionStyle = { background: 'var(--surface-low)', borderRadius: 'var(--radius)', padding: 16, marginBottom: 14 };
   const sectionTitle = { fontSize: 11, fontWeight: 700, color: 'var(--gold)', letterSpacing: 1, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 };
 
-  // 前板/背板選項過濾
   const frontPanelOptions = panelStyles.filter(p => p.position === 'front' || p.position === 'both');
   const backPanelOptions  = panelStyles.filter(p => p.position === 'back'  || p.position === 'both');
+  const lockOptions = accessories.filter(a => a.category === 'lock'); // 門鎖樣式 = accessories.lock
 
   return (
     <div>
@@ -359,6 +394,7 @@ export default function NewFormalQuote() {
               <div style={{ marginTop: 6, fontSize: 12, color: 'var(--success)' }}>
                 已匯入: <strong>{importedQuote.quote_no}</strong> — {importedQuote.customer_name} {fmtPrice(importedQuote.total_price)}
                 {linkedCase && <span style={{ marginLeft: 8, color: 'var(--gold)' }}>· 已找到丈量資料 ({linkedCase.actual_width_cm}×{linkedCase.actual_height_cm} cm)</span>}
+                <div style={{ marginTop: 4, color: 'var(--text-muted)', fontSize: 11 }}>* 已自動帶入特殊需求（拆舊/濕式/乾式），請至下方檢查</div>
               </div>
             )}
           </div>
@@ -396,7 +432,7 @@ export default function NewFormalQuote() {
             </div>
           </div>
 
-          {/* 4. 安裝地點 */}
+          {/* 4. 安裝地點 (含 安裝方式) */}
           <div style={sectionStyle}>
             <div style={sectionTitle}><span className="material-symbols-outlined" style={{ fontSize: 14 }}>location_on</span>安裝地點</div>
             <div className="form-grid">
@@ -419,9 +455,14 @@ export default function NewFormalQuote() {
                   <option value="1">有電梯</option><option value="0">無電梯</option>
                 </select>
               </div>
-              <div className="form-group full"><label>搬運費用 (NT$)</label><input type="number" value={form.deliveryFee} onChange={e => setForm(f => ({ ...f, deliveryFee: e.target.value }))} placeholder="0=無，桃園以北適用" /></div>
+              <div className="form-group"><label>運送安裝方式</label>
+                <select value={form.installMethod} onChange={e => setForm(f => ({ ...f, installMethod: e.target.value }))} style={inputStyle}>
+                  {INSTALL_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </div>
+              <div className="form-group"><label>搬運費用 (NT$)</label><input type="number" value={form.deliveryFee} onChange={e => setForm(f => ({ ...f, deliveryFee: e.target.value }))} placeholder="0=無，桃園以北適用" /></div>
             </div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>* 桃園以北適用，新竹以南/宜蘭/花蓮/台東另議</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>* 桃園以北適用搬運費，新竹以南/宜蘭/花蓮/台東另議</div>
           </div>
 
           {/* 5. 門款基本 */}
@@ -458,7 +499,7 @@ export default function NewFormalQuote() {
             </div>
           </div>
 
-          {/* 6. 尺寸規格（含丈量自動填入） */}
+          {/* 6. 尺寸規格 */}
           <div style={sectionStyle}>
             <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -490,7 +531,7 @@ export default function NewFormalQuote() {
             </div>
           </div>
 
-          {/* 7. 外觀設計（含圖片下拉） */}
+          {/* 7. 外觀設計 */}
           <div style={sectionStyle}>
             <div style={sectionTitle}><span className="material-symbols-outlined" style={{ fontSize: 14 }}>palette</span>外觀設計</div>
             <div className="form-grid">
@@ -501,7 +542,6 @@ export default function NewFormalQuote() {
                 </select>
               </div>
 
-              {/* 前板樣式 — 圖片下拉 */}
               <div className="form-group">
                 <label>前板樣式</label>
                 <select value={form.frontPanelStyle} onChange={e => setForm(f => ({ ...f, frontPanelStyle: e.target.value }))} style={inputStyle}>
@@ -516,7 +556,6 @@ export default function NewFormalQuote() {
                 {frontPanelOptions.length === 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>尚未建立前板樣式 → <a href="/panelstyles" style={{ color: 'var(--gold)' }}>去新增</a></div>}
               </div>
 
-              {/* 背板樣式 — 圖片下拉 */}
               <div className="form-group">
                 <label>背板樣式</label>
                 <select value={form.backPanelStyle} onChange={e => setForm(f => ({ ...f, backPanelStyle: e.target.value }))} style={inputStyle}>
@@ -531,7 +570,6 @@ export default function NewFormalQuote() {
                 {backPanelOptions.length === 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>尚未建立背板樣式 → <a href="/panelstyles" style={{ color: 'var(--gold)' }}>去新增</a></div>}
               </div>
 
-              {/* 藝術框 */}
               <div className="form-group"><label>藝術框</label>
                 <select value={form.artFrame} onChange={e => setForm(f => ({ ...f, artFrame: e.target.value }))} style={inputStyle}>
                   <option value="">無</option>
@@ -543,7 +581,6 @@ export default function NewFormalQuote() {
                 {artFrames.length === 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>尚未建立藝術框 → <a href="/artframes" style={{ color: 'var(--gold)' }}>去新增</a></div>}
               </div>
 
-              {/* 色卡 — 圖片下拉 */}
               <div className="form-group">
                 <label>門扇顏色 / 色卡</label>
                 <select value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} style={inputStyle}>
@@ -559,44 +596,60 @@ export default function NewFormalQuote() {
                 )}
               </div>
 
-              {/* 鎖樣式 */}
-              <div className="form-group full"><label>門鎖樣式</label>
+              {/* 門鎖樣式 — 改用 accessories.lock */}
+              <div className="form-group full"><label>門鎖樣式 <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>(來源：五金配件 → 門鎖)</span></label>
                 <select value={form.lockStyle} onChange={e => setForm(f => ({ ...f, lockStyle: e.target.value }))} style={inputStyle}>
                   <option value="">未指定</option>
-                  {lockStyles.map(l => <option key={l.code} value={l.code}>{l.code}{l.brand ? ` (${l.brand})` : ''} — {l.name_zh || l.name_en || ''}</option>)}
+                  {lockOptions.map(l => <option key={l.id} value={l.id}>{l.name}{l.brand ? ` (${l.brand})` : ''}{l.price ? ` $${l.price.toLocaleString()}` : ''}</option>)}
                 </select>
-                {form.lockStyle && lockStyles.find(l => l.code === form.lockStyle)?.image_url && (
-                  <img src={lockStyles.find(l => l.code === form.lockStyle).image_url} alt={form.lockStyle} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 4, marginTop: 6, border: '1px solid var(--border)' }} />
+                {form.lockStyle && lockOptions.find(l => l.id === form.lockStyle)?.image_url && (
+                  <img src={lockOptions.find(l => l.id === form.lockStyle).image_url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 4, marginTop: 6, border: '1px solid var(--border)' }} />
                 )}
-                {lockStyles.length === 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>尚未建立鎖樣式 → <a href="/lockstyles" style={{ color: 'var(--gold)' }}>去新增</a></div>}
+                {lockOptions.length === 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>尚未建立門鎖配件 → <a href="/accessories" style={{ color: 'var(--gold)' }}>去五金配件新增</a></div>}
               </div>
             </div>
           </div>
 
-          {/* 8. 特殊需求 + 安裝方式 */}
+          {/* 8. 特殊需求 */}
           <div style={sectionStyle}>
-            <div style={sectionTitle}><span className="material-symbols-outlined" style={{ fontSize: 14 }}>build</span>特殊需求 / 安裝方式</div>
-            <div className="form-group" style={{ marginBottom: 10 }}>
-              <label>運送安裝方式</label>
-              <select value={form.installMethod} onChange={e => setForm(f => ({ ...f, installMethod: e.target.value }))} style={inputStyle}>
-                {INSTALL_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </div>
-            <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>特殊需求 (可複選)</label>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {[['none', '無'], ['demolish', '拆舊'], ['recycle', '回收'], ['occupy', '佔框'], ['wet', '濕式施工'], ['dry', '乾式包框'], ['frame', '站框']].map(([k, l]) => (
-                <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={reqs[k]} onChange={e => setReqs(r => ({ ...r, [k]: e.target.checked }))} style={{ accentColor: 'var(--gold)' }} />{l}
+            <div style={sectionTitle}><span className="material-symbols-outlined" style={{ fontSize: 14 }}>build</span>特殊需求</div>
+            <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>內建項目（不計費）</label>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
+              {BUILTIN_REQS.map(r => (
+                <label key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!!reqs[r.key]} onChange={e => setReqs(prev => ({ ...prev, [r.key]: e.target.checked }))} style={{ accentColor: 'var(--gold)' }} />{r.label}
                 </label>
               ))}
             </div>
+
+            <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+              附加施工項目（計入總計）
+              {serviceItems.length === 0 && <a href="/service" style={{ color: 'var(--gold)', marginLeft: 8 }}>→ 去施工費用設定</a>}
+            </label>
+            {serviceItems.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: 8, background: 'var(--surface-2)', borderRadius: 6 }}>
+                尚未建立任何「報價單顯示」的附加項目。請至「施工費用」頁新增項目並勾選「在報價單顯示」。
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+                {serviceItems.map(it => (
+                  <label key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: customReqs[it.id] ? 'rgba(201,162,39,.08)' : 'var(--surface-2)', border: `1px solid ${customReqs[it.id] ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, cursor: 'pointer', justifyContent: 'space-between' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input type="checkbox" checked={!!customReqs[it.id]} onChange={e => setCustomReqs(prev => ({ ...prev, [it.id]: e.target.checked }))} style={{ accentColor: 'var(--gold)' }} />
+                      {it.name}
+                    </span>
+                    <span style={{ color: 'var(--gold)', fontWeight: 700, fontSize: 12 }}>{fmtPrice(it.unit_price)}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* ═══════════════ 右側欄 ═══════════════ */}
         <div>
 
-          {/* 9. 五金配件（圖片+文字） */}
+          {/* 9. 五金配件 */}
           <div style={sectionStyle}>
             <div style={sectionTitle}><span className="material-symbols-outlined" style={{ fontSize: 14 }}>hardware</span>五金配件</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -608,7 +661,7 @@ export default function NewFormalQuote() {
                 const regularStd = allStd.filter(a => !a.fire_only);
                 const activeStd = isFire && fireStd.length ? fireStd : regularStd;
                 const switchedToFire = isFire && fireStd.length > 0;
-                const stdItems = activeStd; // array
+                const stdItems = activeStd;
                 const selectedUpgName = accState[cat]?.selectedUpgrade || (upgItems[0]?.name || '');
                 const selectedUpg = upgItems.find(u => u.name === selectedUpgName);
                 const useUpgrade = accState[cat]?.useUpgrade || false;
@@ -625,7 +678,6 @@ export default function NewFormalQuote() {
                       </label>
                     </div>
 
-                    {/* 標配（圖片+文字） */}
                     <div style={{ marginBottom: useUpgrade ? 8 : 0 }}>
                       <div style={{ fontSize: 9, color: 'var(--text-muted)', marginBottom: 4 }}>標配{switchedToFire ? ' (防火)' : ''}</div>
                       {stdItems.length === 0 ? <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</div> : (
@@ -643,7 +695,6 @@ export default function NewFormalQuote() {
                       )}
                     </div>
 
-                    {/* 加購選配 dropdown */}
                     {useUpgrade && upgItems.length > 0 && (
                       <div>
                         <div style={{ fontSize: 9, color: 'var(--text-muted)', marginBottom: 4 }}>加購選配</div>
@@ -672,7 +723,7 @@ export default function NewFormalQuote() {
                 </select>
               </div>
               <div className="form-group"><label>安裝費</label><input type="number" value={form.installFee} onChange={e => setForm(f => ({ ...f, installFee: e.target.value }))} /></div>
-              <div className="form-group full"><label>附加施工費明細</label><textarea value={form.addonItems} onChange={e => setForm(f => ({ ...f, addonItems: e.target.value }))} placeholder="格式: 項目名稱 金額&#10;例: 拆舊門 3000" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} /></div>
+              <div className="form-group full"><label>附加施工費明細 (自由輸入)</label><textarea value={form.addonItems} onChange={e => setForm(f => ({ ...f, addonItems: e.target.value }))} placeholder="格式: 項目名稱 金額&#10;例: 拆舊門 3000" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} /></div>
             </div>
 
             <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
@@ -680,7 +731,8 @@ export default function NewFormalQuote() {
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '1px solid rgba(201,162,39,0.1)' }}><span style={{ color: 'var(--text-muted)' }}>門扇單價 x {c.qty}</span><span style={{ fontWeight: 600 }}>{fmtPrice(c.doorSubtotal)}</span></div>
                   {c.discount < 1 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '1px solid rgba(201,162,39,0.1)' }}><span style={{ color: 'var(--text-muted)' }}>折扣 ({Math.round(c.discount * 100)}%)</span><span style={{ fontWeight: 600 }}>{fmtPrice(c.discounted)}</span></div>}
-                  {(c.addonLines || []).map((a, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '1px solid rgba(201,162,39,0.1)' }}><span style={{ color: 'var(--text-muted)' }}>{a[0]}</span><span style={{ fontWeight: 600 }}>{fmtPrice(a[1])}</span></div>)}
+                  {(c.addonLines || []).map((a, i) => <div key={'a'+i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '1px solid rgba(201,162,39,0.1)' }}><span style={{ color: 'var(--text-muted)' }}>{a[0]}</span><span style={{ fontWeight: 600 }}>{fmtPrice(a[1])}</span></div>)}
+                  {(c.reqLines || []).map((a, i) => <div key={'r'+i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '1px solid rgba(201,162,39,0.1)', color: 'var(--gold)' }}><span>{a[0]}</span><span style={{ fontWeight: 600 }}>{fmtPrice(a[1])}</span></div>)}
                   {c.installFee > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0', borderBottom: '1px solid rgba(201,162,39,0.1)' }}><span style={{ color: 'var(--text-muted)' }}>安裝費</span><span style={{ fontWeight: 600 }}>{fmtPrice(c.installFee)}</span></div>}
                 </>
               ) : <div style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', padding: 10 }}>請填寫門扇單價</div>}
@@ -722,7 +774,6 @@ export default function NewFormalQuote() {
             <textarea value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} style={{ ...inputStyle, minHeight: 70, resize: 'vertical' }} placeholder="其他補充說明..." />
           </div>
 
-          {/* 提交 */}
           <button className="btn btn-primary" style={{ width: '100%', padding: 14, fontSize: 16, borderRadius: 14 }} onClick={submit}>儲存報價單</button>
         </div>
       </div>
