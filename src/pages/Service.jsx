@@ -33,14 +33,14 @@ export default function Service() {
 
   async function load() {
     setLoading(true);
-    try {
-      const [costs, custom] = await Promise.all([
-        sbFetch('service_costs?select=*&order=door_type.asc'),
-        sbFetch('service_items?select=*&order=sort_order.asc,name.asc')
-      ]);
-      setRows(costs || []);
-      setItems(custom || []);
-    } catch (e) { toast(e.message, 'error'); }
+    const [costsRes, itemsRes] = await Promise.allSettled([
+      sbFetch('service_costs?select=*&order=door_type.asc'),
+      sbFetch('service_items?select=*&order=sort_order.asc,name.asc')
+    ]);
+    if (costsRes.status === 'fulfilled') setRows(costsRes.value || []);
+    else toast('施工費用載入失敗：' + costsRes.reason.message, 'error');
+    if (itemsRes.status === 'fulfilled') setItems(itemsRes.value || []);
+    else { setItems([]); toast('附加項目載入失敗：' + itemsRes.reason.message, 'error'); }
     setLoading(false);
   }
 
